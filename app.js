@@ -693,7 +693,7 @@
     elements.modeDisplay.classList.toggle("man", !isAuto);
     elements.autoButton.classList.toggle("active", isAuto);
     elements.manButton.classList.toggle("active", !isAuto);
-    elements.spInput.disabled = isAuto;
+    elements.spInput.disabled = !isAuto;
     elements.opInput.disabled = isAuto;
     elements.modeHelp.textContent = isAuto
       ? "AUTO：PID 根据 SV − PV 计算 MV。"
