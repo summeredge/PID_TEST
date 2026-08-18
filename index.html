@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="轻量、纯前端的 DCS 风格 PID 过程控制教学仿真"
+    />
+    <title>PID Loop Trainer</title>
+    <link rel="stylesheet" href="style.css" />
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand-block">
+          <div class="eyebrow">PROCESS CONTROL TRAINER</div>
+          <h1>PID LOOP <span>/ LIC-101</span></h1>
+        </div>
+        <div class="topbar-status" aria-label="仿真状态">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span>SIMULATION ONLINE</span>
+          <span class="separator">|</span>
+          <span>FIXED STEP 0.5 s</span>
+        </div>
+      </header>
+
+      <main class="workspace">
+        <aside class="control-panel" aria-label="控制参数和实时数值">
+          <section class="panel-section status-section">
+            <div class="section-heading">
+              <h2>回路状态</h2>
+              <span id="sim-clock" class="sim-clock">t = 0.0 s</span>
+            </div>
+
+            <div class="readout-list" aria-label="实时过程数值">
+              <div class="readout-row pv-readout">
+                <span class="readout-label">PV</span>
+                <output id="pv-value" class="readout-value">50.0</output>
+                <span class="readout-unit">%</span>
+              </div>
+              <div class="readout-row sp-readout">
+                <span class="readout-label">SP</span>
+                <output id="sp-value" class="readout-value">50.0</output>
+                <span class="readout-unit">%</span>
+              </div>
+              <div class="readout-row op-readout">
+                <span class="readout-label">OP</span>
+                <output id="op-value" class="readout-value">50.0</output>
+                <span class="readout-unit">%</span>
+              </div>
+            </div>
+
+            <div class="mode-control">
+              <div class="mode-heading">
+                <span class="field-label">MODE</span>
+                <strong id="mode-display" class="mode-display auto">AUTO</strong>
+              </div>
+              <div class="mode-switch" role="group" aria-label="手自动切换">
+                <button id="auto-button" class="mode-button active" type="button" data-mode="AUTO">
+                  AUTO
+                </button>
+                <button id="man-button" class="mode-button" type="button" data-mode="MAN">
+                  MAN
+                </button>
+              </div>
+              <label class="field-row op-input-row" for="op-input">
+                <span class="field-label">手动 OP</span>
+                <span class="input-with-unit">
+                  <input id="op-input" class="numeric-input" type="number" min="0" max="100" step="0.1" value="50" disabled />
+                  <span>%</span>
+                </span>
+              </label>
+              <p id="mode-help" class="helper-text">
+                AUTO：PID 根据 SP − PV 计算输出。
+              </p>
+            </div>
+          </section>
+
+          <section class="panel-section">
+            <div class="section-heading">
+              <h2>PID</h2>
+              <span class="section-note">ISA / Ideal</span>
+            </div>
+            <div class="parameter-grid">
+              <label class="field-row" for="kc-input">
+                <span class="field-label">Kc</span>
+                <span class="input-with-unit">
+                  <input id="kc-input" class="numeric-input" type="number" min="0" max="50" step="0.1" value="2" />
+                  <span>—</span>
+                </span>
+              </label>
+              <label class="field-row" for="ti-input">
+                <span class="field-label">Ti</span>
+                <span class="input-with-unit">
+                  <input id="ti-input" class="numeric-input" type="number" min="0" max="600" step="0.5" value="20" />
+                  <span>s</span>
+                </span>
+              </label>
+              <label class="field-row" for="td-input">
+                <span class="field-label">Td</span>
+                <span class="input-with-unit">
+                  <input id="td-input" class="numeric-input" type="number" min="0" max="120" step="0.1" value="2" />
+                  <span>s</span>
+                </span>
+              </label>
+            </div>
+            <p class="helper-text">Ti = 0 关闭积分；Td 作用于 PV，避免 SP 阶跃微分冲击。</p>
+          </section>
+
+          <section class="panel-section">
+            <div class="section-heading">
+              <h2>PROCESS</h2>
+              <span class="section-note">FOPDT</span>
+            </div>
+            <div class="parameter-grid">
+              <label class="field-row" for="gain-input">
+                <span class="field-label">Gain</span>
+                <span class="input-with-unit">
+                  <input id="gain-input" class="numeric-input" type="number" min="0.01" max="10" step="0.05" value="1" />
+                  <span>—</span>
+                </span>
+              </label>
+              <label class="field-row" for="tau-input">
+                <span class="field-label">Tau</span>
+                <span class="input-with-unit">
+                  <input id="tau-input" class="numeric-input" type="number" min="0.1" max="600" step="0.5" value="30" />
+                  <span>s</span>
+                </span>
+              </label>
+              <label class="field-row" for="dead-time-input">
+                <span class="field-label">Dead Time</span>
+                <span class="input-with-unit">
+                  <input id="dead-time-input" class="numeric-input" type="number" min="0" max="120" step="0.5" value="5" />
+                  <span>s</span>
+                </span>
+              </label>
+            </div>
+            <p class="helper-text">过程：dPV/dt = [Gain × (OP + Load) − PV] / Tau。</p>
+          </section>
+
+          <section class="panel-section experiments-section">
+            <div class="section-heading">
+              <h2>教学实验</h2>
+              <span class="section-note">ONLINE</span>
+            </div>
+            <label class="field-row" for="sp-input">
+              <span class="field-label">SP</span>
+              <span class="input-with-unit">
+                <input id="sp-input" class="numeric-input" type="number" min="0" max="100" step="0.5" value="50" />
+                <span>%</span>
+              </span>
+            </label>
+            <button id="sp-step-button" class="action-button" type="button">SP Step (50 → 70)</button>
+
+            <label class="field-row" for="disturbance-input">
+              <span class="field-label">Load 幅值</span>
+              <span class="input-with-unit">
+                <input id="disturbance-input" class="numeric-input" type="number" min="-100" max="100" step="1" value="-15" />
+                <span>%</span>
+              </span>
+            </label>
+            <button id="disturbance-button" class="action-button disturbance-button" type="button" aria-pressed="false">
+              Load Disturbance: OFF
+            </button>
+
+            <button id="reset-button" class="reset-button" type="button">Reset</button>
+          </section>
+
+          <div class="panel-footer">
+            <span>Trend sample: 1.0 s</span>
+            <span id="trend-count">0 samples</span>
+          </div>
+        </aside>
+
+        <section class="trend-area" aria-label="实时趋势图">
+          <section class="trend-panel primary-trend">
+            <div class="trend-heading">
+              <div>
+                <div class="eyebrow">LOOP TREND</div>
+                <h2>SP / PV Trend</h2>
+              </div>
+              <div class="legend" aria-label="SP 与 PV 图例">
+                <span class="legend-item"><i class="legend-line sp-line"></i>SP</span>
+                <span class="legend-item"><i class="legend-line pv-line"></i>PV</span>
+              </div>
+            </div>
+            <div class="canvas-wrap">
+              <canvas id="sp-pv-chart" aria-label="SP 与 PV 实时趋势"></canvas>
+            </div>
+          </section>
+
+          <section class="trend-panel op-trend">
+            <div class="trend-heading">
+              <div>
+                <div class="eyebrow">MANIPULATED VARIABLE</div>
+                <h2>OP Trend</h2>
+              </div>
+              <div class="legend" aria-label="OP 图例">
+                <span class="legend-item"><i class="legend-line op-line"></i>OP</span>
+                <span class="op-range">0–100 %</span>
+              </div>
+            </div>
+            <div class="canvas-wrap">
+              <canvas id="op-chart" aria-label="OP 实时趋势"></canvas>
+            </div>
+          </section>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>
