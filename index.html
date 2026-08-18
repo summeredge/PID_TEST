@@ -34,19 +34,19 @@
               <span id="sim-clock" class="sim-clock">t = 0.0 s</span>
             </div>
 
-            <div class="readout-list" aria-label="实时过程数值">
+            <div class="readout-list" aria-label="实时 PV、SV、MV 数值">
               <div class="readout-row pv-readout">
                 <span class="readout-label">PV</span>
                 <output id="pv-value" class="readout-value">50.0</output>
                 <span class="readout-unit">%</span>
               </div>
               <div class="readout-row sp-readout">
-                <span class="readout-label">SP</span>
+                <span class="readout-label">SV</span>
                 <output id="sp-value" class="readout-value">50.0</output>
                 <span class="readout-unit">%</span>
               </div>
               <div class="readout-row op-readout">
-                <span class="readout-label">OP</span>
+                <span class="readout-label">MV</span>
                 <output id="op-value" class="readout-value">50.0</output>
                 <span class="readout-unit">%</span>
               </div>
@@ -66,14 +66,14 @@
                 </button>
               </div>
               <label class="field-row op-input-row" for="op-input">
-                <span class="field-label">手动 OP</span>
+                <span class="field-label">手动 MV</span>
                 <span class="input-with-unit">
                   <input id="op-input" class="numeric-input" type="number" min="0" max="100" step="0.1" value="50" disabled />
                   <span>%</span>
                 </span>
               </label>
               <p id="mode-help" class="helper-text">
-                AUTO：PID 根据 SP − PV 计算输出。
+                AUTO：PID 根据 SV − PV 计算 MV。
               </p>
             </div>
           </section>
@@ -85,7 +85,7 @@
             </div>
 
             <label class="field-row" for="sp-input">
-              <span class="field-label">SP</span>
+              <span class="field-label">SV</span>
               <span class="input-with-unit">
                 <input id="sp-input" class="numeric-input" type="number" min="0" max="100" step="0.5" value="50" />
                 <span>%</span>
@@ -97,11 +97,11 @@
               <span>ISA / Ideal</span>
             </div>
             <div class="parameter-grid">
-              <label class="field-row" for="kc-input">
-                <span class="field-label">Kc</span>
+              <label class="field-row" for="pb-input">
+                <span class="field-label">PB</span>
                 <span class="input-with-unit">
-                  <input id="kc-input" class="numeric-input" type="number" min="0" max="50" step="0.1" value="2" />
-                  <span>—</span>
+                  <input id="pb-input" class="numeric-input" type="number" min="2" step="0.1" value="50" />
+                  <span>%</span>
                 </span>
               </label>
               <label class="field-row" for="ti-input">
@@ -119,6 +119,7 @@
                 </span>
               </label>
             </div>
+            <p id="kc-equivalent" class="helper-text pid-equivalent">Equivalent Kc: 2.00</p>
             <p class="helper-text">Ti = 0 关闭积分；Td 作用于 PV。</p>
 
             <div class="subsection-heading model-subsection-heading">
@@ -136,30 +137,18 @@
           </section>
         </aside>
 
-        <section class="trend-area" aria-label="实时趋势图">
+        <section class="trend-area" aria-label="PV、SV、MV 实时趋势图">
           <section class="trend-panel primary-trend">
             <div class="trend-heading">
-              <h2>SP / PV Trend</h2>
-              <div class="legend" aria-label="SP 与 PV 图例">
-                <span class="legend-item"><i class="legend-line sp-line"></i>SP</span>
+              <h2>PV / SV / MV Trend</h2>
+              <div class="legend" aria-label="PV、SV、MV 图例">
                 <span class="legend-item"><i class="legend-line pv-line"></i>PV</span>
+                <span class="legend-item"><i class="legend-line sp-line"></i>SV</span>
+                <span class="legend-item"><i class="legend-line op-line"></i>MV</span>
               </div>
             </div>
             <div class="canvas-wrap">
-              <canvas id="sp-pv-chart" aria-label="SP 与 PV 实时趋势"></canvas>
-            </div>
-          </section>
-
-          <section class="trend-panel op-trend">
-            <div class="trend-heading">
-              <h2>OP Trend</h2>
-              <div class="legend" aria-label="OP 图例">
-                <span class="legend-item"><i class="legend-line op-line"></i>OP</span>
-                <span class="op-range">0–100 %</span>
-              </div>
-            </div>
-            <div class="canvas-wrap">
-              <canvas id="op-chart" aria-label="OP 实时趋势"></canvas>
+              <canvas id="sp-pv-chart" aria-label="PV、SV、MV 实时趋势"></canvas>
             </div>
           </section>
         </section>
@@ -170,7 +159,7 @@
               <h2>教学实验</h2>
               <span class="section-note">EXPERIMENT</span>
             </div>
-            <button id="sp-step-button" class="action-button primary-action" type="button">SP Step (50 → 70)</button>
+            <button id="sp-step-button" class="action-button primary-action" type="button">SV Step (50 → 70)</button>
             <button id="disturbance-button" class="action-button disturbance-button" type="button" aria-pressed="false">
               Load Disturbance: OFF
             </button>

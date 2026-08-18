@@ -33,6 +33,8 @@
     deadTime: 5,
     disturbance: -15,
   });
+  const PB_MIN = 2;
+  const PB_DEFAULT = 100 / DEFAULTS.kc;
 
   const $ = (id) => document.getElementById(id);
 
@@ -46,7 +48,8 @@
     manButton: $("man-button"),
     opInput: $("op-input"),
     spInput: $("sp-input"),
-    kcInput: $("kc-input"),
+    pbInput: $("pb-input"),
+    kcEquivalent: $("kc-equivalent"),
     tiInput: $("ti-input"),
     tdInput: $("td-input"),
     gainInput: $("gain-input"),
@@ -68,12 +71,11 @@
     trendCount: $("trend-count"),
     simulationStatus: $("simulation-status"),
     spPvCanvas: $("sp-pv-chart"),
-    opCanvas: $("op-chart"),
     speedButtons: [...document.querySelectorAll(".speed-button")],
   };
 
   const inputDefaults = new Map([
-    [elements.kcInput, DEFAULTS.kc],
+    [elements.pbInput, PB_DEFAULT],
     [elements.tiInput, DEFAULTS.ti],
     [elements.tdInput, DEFAULTS.td],
     [elements.gainInput, DEFAULTS.gain],
@@ -106,6 +108,32 @@
     return Number.isFinite(remembered) ? remembered : fallback;
   }
 
+  function updateKcEquivalent(kc) {
+    elements.kcEquivalent.textContent = `Equivalent Kc: ${formatNumber(kc, 2)}`;
+  }
+
+  function readProportionalBand() {
+    const raw = elements.pbInput.value.trim();
+    const parsed = raw === "" ? Number.NaN : Number(raw);
+    const fallback = inputFallback(elements.pbInput, PB_DEFAULT);
+    const safeFallback = Number.isFinite(fallback) && fallback >= PB_MIN ? fallback : PB_DEFAULT;
+
+    if (!Number.isFinite(parsed) || parsed < PB_MIN) {
+      elements.pbInput.classList.add("invalid");
+      elements.pbInput.setAttribute("aria-invalid", "true");
+      const kc = 100 / safeFallback;
+      updateKcEquivalent(kc);
+      return kc;
+    }
+
+    elements.pbInput.classList.remove("invalid");
+    elements.pbInput.setAttribute("aria-invalid", "false");
+    elements.pbInput.dataset.lastValid = String(parsed);
+    const kc = 100 / parsed;
+    updateKcEquivalent(kc);
+    return kc;
+  }
+
   function readInput(input, fallback, min, max) {
     const raw = input.value.trim();
     const parsed = raw === "" ? Number.NaN : Number(raw);
@@ -133,7 +161,7 @@
 
   function getPidParams() {
     return {
-      kc: readInput(elements.kcInput, inputFallback(elements.kcInput, DEFAULTS.kc), 0, 50),
+      kc: readProportionalBand(),
       ti: readInput(elements.tiInput, inputFallback(elements.tiInput, DEFAULTS.ti), 0, 600),
       td: readInput(elements.tdInput, inputFallback(elements.tdInput, DEFAULTS.td), 0, 120),
     };
@@ -183,6 +211,7 @@
     setProcessParameterInputs(DEFAULTS.processModel);
     writeInput(elements.spInput, DEFAULTS.sp);
     writeInput(elements.opInput, DEFAULTS.op);
+    updateKcEquivalent(DEFAULTS.kc);
   }
 
   function normalizeInput(input) {
@@ -190,7 +219,7 @@
     const limits = {
       "sp-input": [0, 100],
       "op-input": [0, 100],
-      "kc-input": [0, 50],
+      "pb-input": [PB_MIN, Number.POSITIVE_INFINITY],
       "ti-input": [0, 600],
       "td-input": [0, 120],
       "gain-input": [0.01, 10],
@@ -590,15 +619,10 @@
       yMax: state.chartPvMax,
       yTicks: 4,
       series: [
-        { key: "sp", color: "#9c6a00" },
         { key: "pv", color: "#007b87" },
+        { key: "sp", color: "#9c6a00" },
+        { key: "op", color: "#b45b1f" },
       ],
-    });
-    drawChart(elements.opCanvas, {
-      yMin: 0,
-      yMax: 100,
-      yTicks: 4,
-      series: [{ key: "op", color: "#b45b1f" }],
     });
   }
 
@@ -622,15 +646,15 @@
     elements.manButton.classList.toggle("active", !isAuto);
     elements.opInput.disabled = isAuto;
     elements.modeHelp.textContent = isAuto
-      ? "AUTO：PID 根据 SP − PV 计算输出。"
-      : "MAN：PID 停止控制，OP 输入可直接修改。";
+      ? "AUTO：PID 根据 SV − PV 计算 MV。"
+      : "MAN：PID 停止自动调节，可直接修改 MV。";
 
     if (isAuto || document.activeElement !== elements.opInput) {
       writeInput(elements.opInput, state.op);
     }
 
     const nextStep = Math.abs(state.sp - 70) < 0.01 ? "50" : "70";
-    elements.spStepButton.textContent = `SP Step (→ ${nextStep})`;
+    elements.spStepButton.textContent = `SV Step (→ ${nextStep})`;
     elements.disturbanceButton.textContent = state.disturbanceEnabled
       ? "Load Disturbance: ON"
       : "Load Disturbance: OFF";
@@ -670,6 +694,11 @@
       updateUi();
     });
 
+    elements.pbInput.addEventListener("input", () => {
+      readProportionalBand();
+      updateUi();
+    });
+
     elements.opInput.addEventListener("input", () => {
       if (state.mode !== "MAN") return;
       state.op = readInput(elements.opInput, state.op, 0, 100);
@@ -678,7 +707,7 @@
     });
 
     [
-      elements.kcInput,
+      elements.pbInput,
       elements.tiInput,
       elements.tdInput,
       elements.gainInput,
