@@ -5,6 +5,7 @@
   const TREND_INTERVAL = 1;
   const HISTORY_SECONDS = 300;
   const CHART_WINDOW_SECONDS = 120;
+  const SPEED_OPTIONS = Object.freeze([1, 2, 5, 10]);
 
   const DEFAULTS = Object.freeze({
     sp: 50,
@@ -45,6 +46,7 @@
     trendCount: $("trend-count"),
     spPvCanvas: $("sp-pv-chart"),
     opCanvas: $("op-chart"),
+    speedButtons: [...document.querySelectorAll(".speed-button")],
   };
 
   const inputDefaults = new Map([
@@ -61,6 +63,7 @@
   let animationFrame = 0;
   let lastFrameTime = 0;
   let accumulator = 0;
+  let simulationSpeed = 1;
 
   function clamp(value, min, max) {
     return Math.min(max, Math.max(min, value));
@@ -313,6 +316,18 @@
     updateUi();
   }
 
+  function setSimulationSpeed(value) {
+    const nextSpeed = Number(value);
+    if (!SPEED_OPTIONS.includes(nextSpeed)) return;
+
+    simulationSpeed = nextSpeed;
+    elements.speedButtons.forEach((button) => {
+      const isActive = Number(button.dataset.speed) === simulationSpeed;
+      button.classList.toggle("active", isActive);
+      button.setAttribute("aria-pressed", String(isActive));
+    });
+  }
+
   function updateChartScale() {
     for (const point of state.history) {
       if (point.pv < state.chartPvMin + 5) {
@@ -500,7 +515,7 @@
     if (!lastFrameTime) lastFrameTime = now;
     const elapsed = Math.min(0.25, Math.max(0, (now - lastFrameTime) / 1000));
     lastFrameTime = now;
-    accumulator += elapsed;
+    accumulator += elapsed * simulationSpeed;
 
     let steps = 0;
     while (accumulator >= DT && steps < 20) {
@@ -518,6 +533,10 @@
   function attachEvents() {
     document.querySelectorAll(".mode-button").forEach((button) => {
       button.addEventListener("click", () => setMode(button.dataset.mode));
+    });
+
+    elements.speedButtons.forEach((button) => {
+      button.addEventListener("click", () => setSimulationSpeed(button.dataset.speed));
     });
 
     elements.spInput.addEventListener("input", () => {
@@ -559,6 +578,7 @@
 
   function start() {
     attachEvents();
+    setSimulationSpeed(simulationSpeed);
     resetSimulation();
     if (animationFrame) window.cancelAnimationFrame(animationFrame);
     animationFrame = window.requestAnimationFrame(animationLoop);

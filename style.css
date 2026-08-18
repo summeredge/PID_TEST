@@ -93,6 +93,46 @@ button {
   white-space: nowrap;
 }
 
+.speed-control-label {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.speed-switch {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(29px, 1fr));
+  border: 1px solid var(--line);
+}
+
+.speed-button {
+  min-width: 29px;
+  padding: 5px 7px;
+  border: 0;
+  border-right: 1px solid var(--line);
+  background: #d6dde0;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.speed-button:last-child {
+  border-right: 0;
+}
+
+.speed-button:hover,
+.speed-button:focus-visible {
+  color: var(--text);
+  outline: none;
+}
+
+.speed-button.active {
+  background: var(--text);
+  color: #ffffff;
+}
+
 .status-dot {
   width: 8px;
   height: 8px;
