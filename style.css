@@ -159,27 +159,37 @@ button {
   min-height: 0;
   flex: 1;
   grid-template-columns: minmax(300px, 342px) minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-rows: minmax(0, 1fr);
   gap: 16px;
   padding: 16px;
   overflow: hidden;
 }
 
 .control-panel {
+  display: flex;
   min-height: 0;
-  overflow: auto;
+  min-width: 0;
+  flex-direction: column;
+  overflow: hidden;
   border: 1px solid var(--line);
   background: var(--panel);
 }
 
-.primary-controls {
+.left-controls {
   grid-column: 1;
   grid-row: 1;
 }
 
-.secondary-controls {
-  grid-column: 1;
-  grid-row: 2;
+.control-panel-main {
+  flex: 0 0 auto;
+}
+
+.control-panel-secondary-scroll {
+  min-height: 0;
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .panel-section {
@@ -613,7 +623,7 @@ h2 {
   min-height: 0;
   flex-direction: column;
   grid-column: 2;
-  grid-row: 1 / span 2;
+  grid-row: 1;
 }
 
 .trend-panel {
@@ -686,6 +696,77 @@ summary:focus-visible {
   outline-offset: 2px;
 }
 
+@media (min-width: 901px) {
+  .control-panel-main .panel-section {
+    padding-top: 7px;
+    padding-bottom: 7px;
+  }
+
+  .control-panel-main .section-heading {
+    margin-bottom: 5px;
+  }
+
+  .control-panel-main .readout-row {
+    min-height: 36px;
+    padding-top: 4px;
+    padding-bottom: 4px;
+  }
+
+  .control-panel-main .readout-value {
+    font-size: 26px;
+  }
+
+  .control-panel-main .mode-control {
+    margin-top: 6px;
+    padding: 5px 9px;
+  }
+
+  .control-panel-main .mode-heading {
+    margin-bottom: 3px;
+  }
+
+  .control-panel-main .mode-switch {
+    margin-bottom: 3px;
+  }
+
+  .control-panel-main .mode-button {
+    min-height: 30px;
+    padding-top: 5px;
+    padding-bottom: 5px;
+  }
+
+  .control-panel-main .field-row {
+    min-height: 28px;
+  }
+
+  .control-panel-main .numeric-input,
+  .control-panel-main .model-select {
+    min-height: 30px;
+  }
+
+  .control-panel-main .helper-text {
+    margin-top: 3px;
+    line-height: 1.25;
+  }
+
+  .control-panel-main .subsection-heading {
+    margin-top: 5px;
+    margin-bottom: 1px;
+  }
+
+  .control-panel-main .model-subsection-heading {
+    margin-top: 6px;
+  }
+
+  .control-panel-main .process-model-row {
+    margin-bottom: 4px;
+  }
+
+  .control-panel-main .basic-section {
+    padding-bottom: 5px;
+  }
+}
+
 @media (max-width: 900px) {
   .app-shell {
     height: auto;
@@ -712,14 +793,13 @@ summary:focus-visible {
     overflow: visible;
   }
 
-  .primary-controls,
-  .trend-area,
-  .secondary-controls {
+  .left-controls,
+  .trend-area {
     grid-column: auto;
     grid-row: auto;
   }
 
-  .primary-controls {
+  .left-controls {
     order: 1;
   }
 
@@ -727,8 +807,11 @@ summary:focus-visible {
     order: 2;
   }
 
-  .secondary-controls {
-    order: 3;
+  .control-panel-main,
+  .control-panel-secondary-scroll {
+    min-height: auto;
+    flex: 0 0 auto;
+    overflow: visible;
   }
 
   .trend-area {
