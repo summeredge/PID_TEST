@@ -1,18 +1,18 @@
 :root {
-  color-scheme: dark;
-  --bg: #0b1014;
-  --panel: #121a21;
-  --panel-alt: #17212a;
-  --panel-deep: #0e151b;
-  --line: #2a3944;
-  --line-soft: #202e38;
-  --text: #e6edf1;
-  --muted: #8da0ab;
-  --cyan: #42d7e8;
-  --amber: #f5c563;
-  --orange: #ef8f4d;
-  --green: #79d39b;
-  --danger: #f17e76;
+  color-scheme: light;
+  --bg: #d9dde0;
+  --panel: #e9ecee;
+  --panel-alt: #e0e5e7;
+  --panel-deep: #f3f5f5;
+  --line: #b3bdc2;
+  --line-soft: #d0d6da;
+  --text: #26323a;
+  --muted: #5e6b72;
+  --cyan: #007b87;
+  --amber: #9c6a00;
+  --orange: #b45b1f;
+  --green: #2c7d4f;
+  --danger: #b5413b;
   font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
   font-synthesis: none;
 }
@@ -59,7 +59,7 @@ button {
   gap: 24px;
   padding: 14px 24px;
   border-bottom: 1px solid var(--line);
-  background: #0e151b;
+  background: #c6ccd0;
 }
 
 .brand-block h1 {
@@ -256,7 +256,7 @@ h2 {
   padding: 8px 10px;
   border: 0;
   border-right: 1px solid var(--line);
-  background: #101820;
+  background: #d6dde0;
   color: var(--muted);
   font-size: 12px;
   font-weight: 700;
@@ -307,7 +307,7 @@ h2 {
   border: 1px solid var(--line);
   border-radius: 2px;
   outline: none;
-  background: #0d141a;
+  background: #f7f8f8;
   color: var(--text);
   font-family: Consolas, "Cascadia Mono", monospace;
   font-size: 13px;
@@ -326,8 +326,8 @@ h2 {
 
 .numeric-input:disabled {
   border-color: var(--line-soft);
-  background: #111920;
-  color: #71828d;
+  background: #e1e5e7;
+  color: #829097;
   cursor: not-allowed;
 }
 

@@ -366,8 +366,8 @@
   function drawGrid(context, geometry, yTicks) {
     const { left, top, plotWidth, plotHeight, yMin, yMax, xStart, xEnd } = geometry;
     context.lineWidth = 1;
-    context.strokeStyle = "#263640";
-    context.fillStyle = "#8295a0";
+    context.strokeStyle = "#c3ccd1";
+    context.fillStyle = "#5e6b72";
     context.font = "10px Segoe UI, Microsoft YaHei, sans-serif";
 
     for (let index = 0; index <= yTicks; index += 1) {
@@ -434,7 +434,7 @@
 
     const { context, width, height } = sized;
     context.clearRect(0, 0, width, height);
-    context.fillStyle = "#0e151b";
+    context.fillStyle = "#f3f5f5";
     context.fillRect(0, 0, width, height);
 
     const geometry = chartGeometry(width, height, options.yMin, options.yMax);
@@ -452,15 +452,15 @@
       yMax: state.chartPvMax,
       yTicks: 4,
       series: [
-        { key: "sp", color: "#f5c563" },
-        { key: "pv", color: "#42d7e8" },
+        { key: "sp", color: "#9c6a00" },
+        { key: "pv", color: "#007b87" },
       ],
     });
     drawChart(elements.opCanvas, {
       yMin: 0,
       yMax: 100,
       yTicks: 4,
-      series: [{ key: "op", color: "#ef8f4d" }],
+      series: [{ key: "op", color: "#b45b1f" }],
     });
   }
 
