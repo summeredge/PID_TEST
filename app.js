@@ -9,6 +9,8 @@
   const PROCESS_MODELS = Object.freeze(["FOPDT", "INTEGRATING", "SOPDT"]);
   const PID_ALGORITHMS = Object.freeze(["I_PD", "PI_D", "PID"]);
   const DISTURBANCE_TYPES = Object.freeze(["STEP", "SQUARE", "SINE"]);
+  const { computeVelocityPidDelta, isValidRange, normalizePidSignals } =
+    window.PIDLoopCore;
   const DISTURBANCE_LABELS = Object.freeze({
     STEP: "Step",
     SQUARE: "Square",
@@ -35,6 +37,9 @@
     sp: 50,
     pv: 50,
     op: 50,
+    pvLrv: 0,
+    pvUrv: 100,
+    pvUnit: "%",
     processModel: "FOPDT",
     pidAlgorithm: "I_PD",
     kc: 2,
@@ -50,6 +55,8 @@
   });
   const PB_MIN = 2;
   const PB_DEFAULT = 100 / DEFAULTS.kc;
+  const ENGINEERING_VALUE_MIN = -100000;
+  const ENGINEERING_VALUE_MAX = 100000;
 
   const $ = (id) => document.getElementById(id);
 
@@ -57,22 +64,35 @@
     pvValue: $("pv-value"),
     spValue: $("sp-value"),
     opValue: $("op-value"),
+    pvReadoutUnit: $("pv-readout-unit"),
+    spReadoutUnit: $("sp-readout-unit"),
     modeDisplay: $("mode-display"),
     modeHelp: $("mode-help"),
     autoButton: $("auto-button"),
     manButton: $("man-button"),
     opInput: $("op-input"),
     spInput: $("sp-input"),
+    spInputUnit: $("sp-input-unit"),
     pidAlgorithmInput: $("pid-algorithm-input"),
     pidAlgorithmNote: $("pid-algorithm-note"),
     pbInput: $("pb-input"),
     kcEquivalent: $("kc-equivalent"),
+    pidSpanNote: $("pid-span-note"),
     tiInput: $("ti-input"),
     tdInput: $("td-input"),
     gainInput: $("gain-input"),
     tauInput: $("tau-input"),
     tau2Input: $("tau-2-input"),
     deadTimeInput: $("dead-time-input"),
+    pvLrvInput: $("pv-lrv-input"),
+    pvUrvInput: $("pv-urv-input"),
+    pvUnitInput: $("pv-unit-input"),
+    pvSpanValue: $("pv-span-value"),
+    pvRangeUnit: $("pv-range-unit"),
+    pvPctValue: $("pv-pct-value"),
+    spPctValue: $("sp-pct-value"),
+    errorPctValue: $("error-pct-value"),
+    pvRangeHelp: $("pv-range-help"),
     processModelInput: $("process-model-input"),
     processModelNote: $("process-model-note"),
     advancedModelNote: $("advanced-model-note"),
@@ -95,6 +115,8 @@
   };
 
   const inputDefaults = new Map([
+    [elements.pvLrvInput, DEFAULTS.pvLrv],
+    [elements.pvUrvInput, DEFAULTS.pvUrv],
     [elements.pbInput, PB_DEFAULT],
     [elements.tiInput, DEFAULTS.ti],
     [elements.tdInput, DEFAULTS.td],
@@ -129,8 +151,14 @@
     return Number.isFinite(remembered) ? remembered : fallback;
   }
 
+  function textInputFallback(input, fallback) {
+    return typeof input.dataset.lastValid === "string" ? input.dataset.lastValid : fallback;
+  }
+
   function updateKcEquivalent(kc) {
     elements.kcEquivalent.textContent = `Equivalent Kc: ${formatNumber(kc, 2)}`;
+    elements.pidSpanNote.textContent =
+      `PB = ${formatNumber(100 / kc, 1)}% → Kc = ${formatNumber(kc, 2)} · PID input uses PV/SV in %Span`;
   }
 
   function updatePidAlgorithmUi() {
@@ -188,6 +216,14 @@
     input.setAttribute("aria-invalid", "false");
   }
 
+  function writeTextInput(input, value) {
+    const safeValue = String(value ?? "");
+    input.value = safeValue;
+    input.dataset.lastValid = safeValue;
+    input.classList.remove("invalid");
+    input.setAttribute("aria-invalid", "false");
+  }
+
   function getPidParams() {
     return {
       pidAlgorithm: state.pidAlgorithm,
@@ -195,6 +231,84 @@
       ti: readInput(elements.tiInput, inputFallback(elements.tiInput, DEFAULTS.ti), 0, 600),
       td: readInput(elements.tdInput, inputFallback(elements.tdInput, DEFAULTS.td), 0, 120),
     };
+  }
+
+  function readPvRangeInputs() {
+    const lrvRaw = elements.pvLrvInput.value.trim();
+    const urvRaw = elements.pvUrvInput.value.trim();
+    const lrv = lrvRaw === "" ? Number.NaN : Number(lrvRaw);
+    const urv = urvRaw === "" ? Number.NaN : Number(urvRaw);
+    const valid = isValidRange(lrv, urv);
+    const unitRaw = elements.pvUnitInput.value.trim();
+    const unitFallback = state?.pvRange?.unit || DEFAULTS.pvUnit;
+    const unit = unitRaw || textInputFallback(elements.pvUnitInput, unitFallback);
+
+    [elements.pvLrvInput, elements.pvUrvInput].forEach((input) => {
+      input.classList.toggle("invalid", !valid);
+      input.setAttribute("aria-invalid", String(!valid));
+    });
+    if (valid) {
+      elements.pvLrvInput.dataset.lastValid = String(lrv);
+      elements.pvUrvInput.dataset.lastValid = String(urv);
+    }
+    if (unitRaw) {
+      elements.pvUnitInput.dataset.lastValid = unitRaw;
+      elements.pvUnitInput.classList.remove("invalid");
+      elements.pvUnitInput.setAttribute("aria-invalid", "false");
+    }
+
+    return { lrv, urv, unit, valid };
+  }
+
+  function syncPvRange() {
+    const candidate = readPvRangeInputs();
+    if (!state || !candidate.valid) return state?.pvRange;
+
+    const previous = state.pvRange;
+    const engineeringRangeChanged =
+      !previous || candidate.lrv !== previous.lrv || candidate.urv !== previous.urv;
+    const unitChanged = !previous || candidate.unit !== previous.unit;
+    if (!engineeringRangeChanged && !unitChanged) return previous;
+
+    state.pvRange = { lrv: candidate.lrv, urv: candidate.urv, unit: candidate.unit };
+    if (engineeringRangeChanged) {
+      syncPidHistory();
+      state.justEnteredAuto = state.mode === "AUTO";
+    }
+    return state.pvRange;
+  }
+
+  function getNormalizedSignals() {
+    return normalizePidSignals(
+      state.pv,
+      state.sp,
+      state.pvRange.lrv,
+      state.pvRange.urv,
+    );
+  }
+
+  function updatePvRangeUi() {
+    const range = state.pvRange;
+    const signals = getNormalizedSignals();
+    const unit = range.unit || "EU";
+    const rangeInvalid =
+      elements.pvLrvInput.getAttribute("aria-invalid") === "true" ||
+      elements.pvUrvInput.getAttribute("aria-invalid") === "true";
+
+    elements.pvSpanValue.textContent = formatNumber(range.urv - range.lrv, 2);
+    elements.pvRangeUnit.textContent = unit;
+    elements.pvPctValue.textContent = formatNumber(signals.pvPct, 2);
+    elements.spPctValue.textContent = formatNumber(signals.spPct, 2);
+    elements.errorPctValue.textContent = formatNumber(signals.errorPct, 2);
+    elements.pvReadoutUnit.textContent = unit;
+    elements.spReadoutUnit.textContent = unit;
+    elements.spInputUnit.textContent = unit;
+    elements.pvRangeHelp.textContent = rangeInvalid
+      ? `URV must be greater than LRV. Using last valid range: ${formatNumber(
+          range.lrv,
+          2,
+        )} … ${formatNumber(range.urv, 2)} ${unit}.`
+      : "PID converts PV and SV to %Span; process dynamics remain in engineering units.";
   }
 
   function selectedProcessModel() {
@@ -273,13 +387,14 @@
     setProcessParameterInputs(DEFAULTS.processModel);
     writeInput(elements.spInput, DEFAULTS.sp);
     writeInput(elements.opInput, DEFAULTS.op);
+    writeTextInput(elements.pvUnitInput, DEFAULTS.pvUnit);
     updateKcEquivalent(DEFAULTS.kc);
   }
 
   function normalizeInput(input) {
     const fallback = inputFallback(input, 0);
     const limits = {
-      "sp-input": [0, 100],
+      "sp-input": [ENGINEERING_VALUE_MIN, ENGINEERING_VALUE_MAX],
       "op-input": [0, 100],
       "pb-input": [PB_MIN, Number.POSITIVE_INFINITY],
       "ti-input": [0, 600],
@@ -328,40 +443,34 @@
   }
 
   function syncPidHistory() {
-    const error = state.sp - state.pv;
-    state.previousError = error;
-    state.previousDeltaError = 0;
-    state.previousPv = state.pv;
-    state.previousDeltaPv = 0;
+    const signals = getNormalizedSignals();
+    state.previousErrorPct = signals.errorPct;
+    state.previousDeltaErrorPct = 0;
+    state.previousPvPct = signals.pvPct;
+    state.previousDeltaPvPct = 0;
   }
 
   function computePidDelta(params) {
-    const error = state.sp - state.pv;
-    const deltaError = error - state.previousError;
-    const deltaPv = state.pv - state.previousPv;
-    const delta2Error = deltaError - state.previousDeltaError;
-    const delta2Pv = deltaPv - state.previousDeltaPv;
-    const integralPart = params.ti > 0 ? (DT / params.ti) * error : 0;
+    const signals = getNormalizedSignals();
+    const result = computeVelocityPidDelta({
+      dt: DT,
+      pidAlgorithm: params.pidAlgorithm,
+      kc: params.kc,
+      ti: params.ti,
+      td: params.td,
+      errorPct: signals.errorPct,
+      previousErrorPct: state.previousErrorPct,
+      previousDeltaErrorPct: state.previousDeltaErrorPct,
+      pvPct: signals.pvPct,
+      previousPvPct: state.previousPvPct,
+      previousDeltaPvPct: state.previousDeltaPvPct,
+    });
 
-    let deltaMv;
-    switch (params.pidAlgorithm) {
-      case "PID":
-        deltaMv = params.kc * (deltaError + integralPart + (params.td / DT) * delta2Error);
-        break;
-      case "PI_D":
-        deltaMv = params.kc * (deltaError + integralPart - (params.td / DT) * delta2Pv);
-        break;
-      case "I_PD":
-      default:
-        deltaMv = params.kc * (-deltaPv + integralPart - (params.td / DT) * delta2Pv);
-        break;
-    }
-
-    state.previousError = error;
-    state.previousDeltaError = deltaError;
-    state.previousPv = state.pv;
-    state.previousDeltaPv = deltaPv;
-    return finiteOr(deltaMv, 0);
+    state.previousErrorPct = signals.errorPct;
+    state.previousDeltaErrorPct = result.deltaErrorPct;
+    state.previousPvPct = signals.pvPct;
+    state.previousDeltaPvPct = result.deltaPvPct;
+    return finiteOr(result.deltaMv, 0);
   }
 
   function computeAutoOutput(params) {
@@ -445,10 +554,11 @@
   }
 
   function recordTrendSample() {
+    const signals = getNormalizedSignals();
     state.history.push({
       time: state.simTime,
-      sp: state.sp,
-      pv: state.pv,
+      sp: signals.spPct,
+      pv: signals.pvPct,
       op: state.op,
     });
     const oldestAllowed = state.simTime - HISTORY_SECONDS;
@@ -458,9 +568,15 @@
   }
 
   function stepSimulation() {
+    state.sp = readInput(
+      elements.spInput,
+      state.sp,
+      ENGINEERING_VALUE_MIN,
+      ENGINEERING_VALUE_MAX,
+    );
+    syncPvRange();
     const pidParams = getPidParams();
     const processParams = getProcessParams();
-    state.sp = readInput(elements.spInput, state.sp, 0, 100);
 
     if (state.mode === "AUTO") {
       state.op = computeAutoOutput(pidParams);
@@ -487,14 +603,19 @@
       sp: DEFAULTS.sp,
       pv: DEFAULTS.pv,
       op: DEFAULTS.op,
+      pvRange: {
+        lrv: DEFAULTS.pvLrv,
+        urv: DEFAULTS.pvUrv,
+        unit: DEFAULTS.pvUnit,
+      },
       mode: "AUTO",
       processModel: DEFAULTS.processModel,
       pidAlgorithm: DEFAULTS.pidAlgorithm,
       processStage1: DEFAULTS.pv,
-      previousError: DEFAULTS.sp - DEFAULTS.pv,
-      previousDeltaError: 0,
-      previousPv: DEFAULTS.pv,
-      previousDeltaPv: 0,
+      previousErrorPct: 0,
+      previousDeltaErrorPct: 0,
+      previousPvPct: 50,
+      previousDeltaPvPct: 0,
       justEnteredAuto: false,
       delayBuffer: [],
       lastProcessInput: DEFAULTS.op,
@@ -503,9 +624,10 @@
       disturbanceStartTime: 0,
       simulationPaused,
       history: [],
-      chartPvMin: 0,
-      chartPvMax: 100,
+      chartPercentMin: 0,
+      chartPercentMax: 100,
     };
+    syncPidHistory();
     initializeDelayBuffer(DEFAULTS.deadTime);
     recordTrendSample();
     lastFrameTime = performance.now();
@@ -603,14 +725,14 @@
 
   function updateChartScale() {
     for (const point of state.history) {
-      if (point.pv < state.chartPvMin + 5) {
-        state.chartPvMin = Math.floor((point.pv - 5) / 10) * 10;
+      if (point.pv < state.chartPercentMin + 5) {
+        state.chartPercentMin = Math.floor((point.pv - 5) / 10) * 10;
       }
-      if (point.pv > state.chartPvMax - 5 || point.sp > state.chartPvMax - 5) {
-        state.chartPvMax = Math.ceil((Math.max(point.pv, point.sp) + 5) / 10) * 10;
+      if (point.pv > state.chartPercentMax - 5 || point.sp > state.chartPercentMax - 5) {
+        state.chartPercentMax = Math.ceil((Math.max(point.pv, point.sp) + 5) / 10) * 10;
       }
     }
-    state.chartPvMax = Math.max(state.chartPvMax, state.chartPvMin + 20, 100);
+    state.chartPercentMax = Math.max(state.chartPercentMax, state.chartPercentMin + 20, 100);
   }
 
   function resizeCanvas(canvas) {
@@ -736,8 +858,8 @@
     if (!state) return;
     updateChartScale();
     drawChart(elements.spPvCanvas, {
-      yMin: state.chartPvMin,
-      yMax: state.chartPvMax,
+      yMin: state.chartPercentMin,
+      yMax: state.chartPercentMax,
       yTicks: 4,
       series: [
         { key: "pv", color: "#007b87" },
@@ -750,6 +872,7 @@
   function updateUi() {
     if (!state) return;
 
+    syncPvRange();
     const isPaused = state.simulationPaused;
     elements.simulationStatus.textContent = isPaused
       ? "SIMULATION PAUSED"
@@ -758,6 +881,7 @@
     elements.simulationStatus.classList.toggle("paused", isPaused);
     updateProcessUi();
     updatePidAlgorithmUi();
+    updatePvRangeUi();
     elements.pvValue.textContent = formatNumber(state.pv);
     elements.spValue.textContent = formatNumber(state.sp);
     elements.opValue.textContent = formatNumber(state.op);
@@ -773,7 +897,7 @@
     elements.spInput.disabled = !isAuto;
     elements.opInput.disabled = isAuto;
     elements.modeHelp.textContent = isAuto
-      ? "AUTO：PID 根据 SV − PV 计算 MV。"
+      ? "AUTO：PID 根据归一化后的 PV / SV %Span 计算 MV。"
       : "MAN：PID 停止自动调节，可直接修改 MV。";
 
     if (isAuto || document.activeElement !== elements.opInput) {
@@ -820,8 +944,24 @@
     });
 
     elements.spInput.addEventListener("input", () => {
-      state.sp = readInput(elements.spInput, state.sp, 0, 100);
+      state.sp = readInput(
+        elements.spInput,
+        state.sp,
+        ENGINEERING_VALUE_MIN,
+        ENGINEERING_VALUE_MAX,
+      );
       updateUi();
+    });
+
+    [elements.pvLrvInput, elements.pvUrvInput, elements.pvUnitInput].forEach((input) => {
+      input.addEventListener("input", () => {
+        syncPvRange();
+        updateUi();
+      });
+      input.addEventListener("change", () => {
+        syncPvRange();
+        updateUi();
+      });
     });
 
     elements.pidAlgorithmInput.addEventListener("change", () => {
@@ -842,6 +982,7 @@
 
     [
       elements.pbInput,
+      elements.spInput,
       elements.tiInput,
       elements.tdInput,
       elements.gainInput,

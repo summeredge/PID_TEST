@@ -9,6 +9,7 @@
     />
     <title>PID Loop Trainer</title>
     <link rel="stylesheet" href="style.css" />
+    <script src="pid-core.js" defer></script>
     <script src="app.js" defer></script>
   </head>
   <body>
@@ -39,12 +40,12 @@
               <div class="readout-row pv-readout">
                 <span class="readout-label">PV</span>
                 <output id="pv-value" class="readout-value">50.0</output>
-                <span class="readout-unit">%</span>
+                <span id="pv-readout-unit" class="readout-unit">%</span>
               </div>
               <div class="readout-row sp-readout">
                 <span class="readout-label">SV</span>
                 <output id="sp-value" class="readout-value">50.0</output>
-                <span class="readout-unit">%</span>
+                <span id="sp-readout-unit" class="readout-unit">%</span>
               </div>
               <div class="readout-row op-readout">
                 <span class="readout-label">MV</span>
@@ -69,8 +70,8 @@
               <label class="field-row" for="sp-input">
                 <span class="field-label">SV</span>
                 <span class="input-with-unit">
-                  <input id="sp-input" class="numeric-input" type="number" min="0" max="100" step="0.5" value="50" />
-                  <span>%</span>
+                  <input id="sp-input" class="numeric-input" type="number" step="0.5" value="50" />
+                  <span id="sp-input-unit">%</span>
                 </span>
               </label>
               <label class="field-row op-input-row" for="op-input">
@@ -131,6 +132,7 @@
               </label>
             </div>
             <p id="kc-equivalent" class="helper-text pid-equivalent">Equivalent Kc: 2.00</p>
+            <p id="pid-span-note" class="helper-text">PB = 50% → Kc = 2.00 · PID input uses PV/SV in %Span</p>
             <p class="helper-text">Ti = 0 关闭积分；Td = 0 关闭微分。</p>
 
             <div class="subsection-heading model-subsection-heading">
@@ -171,6 +173,56 @@
                 <span class="summary-note">PROCESS / SIMULATION</span>
               </summary>
               <div class="advanced-content">
+                <section class="advanced-block pv-range-block">
+                  <div class="subsection-heading">
+                    <span>PV RANGE</span>
+                    <span class="section-note">ENGINEERING SCALE</span>
+                  </div>
+                  <label class="field-row" for="pv-lrv-input">
+                    <span class="field-label">LRV</span>
+                    <span class="input-with-unit">
+                      <input id="pv-lrv-input" class="numeric-input" type="number" step="any" value="0" />
+                      <span>EU</span>
+                    </span>
+                  </label>
+                  <label class="field-row" for="pv-urv-input">
+                    <span class="field-label">URV</span>
+                    <span class="input-with-unit">
+                      <input id="pv-urv-input" class="numeric-input" type="number" step="any" value="100" />
+                      <span>EU</span>
+                    </span>
+                  </label>
+                  <label class="field-row" for="pv-unit-input">
+                    <span class="field-label">Unit</span>
+                    <input id="pv-unit-input" class="text-input" type="text" maxlength="12" value="%" />
+                  </label>
+                  <div class="range-readout-list" aria-label="PV、SV、Error 的百分量程值">
+                    <div class="range-readout-row">
+                      <span>Span</span>
+                      <strong id="pv-span-value">100.00</strong>
+                      <span id="pv-range-unit">%</span>
+                    </div>
+                    <div class="range-readout-row">
+                      <span>PV %Span</span>
+                      <strong id="pv-pct-value">50.00</strong>
+                      <span>%</span>
+                    </div>
+                    <div class="range-readout-row">
+                      <span>SV %Span</span>
+                      <strong id="sp-pct-value">50.00</strong>
+                      <span>%</span>
+                    </div>
+                    <div class="range-readout-row">
+                      <span>Error %Span</span>
+                      <strong id="error-pct-value">0.00</strong>
+                      <span>%</span>
+                    </div>
+                  </div>
+                  <p id="pv-range-help" class="helper-text">
+                    PID converts PV and SV to %Span; process dynamics remain in engineering units.
+                  </p>
+                </section>
+
                 <section class="advanced-block">
                   <div class="subsection-heading">
                     <span>PROCESS PARAMETERS</span>
@@ -270,7 +322,10 @@
         <section class="trend-area" aria-label="PV、SV、MV 实时趋势图">
           <section class="trend-panel primary-trend">
             <div class="trend-heading">
-              <h2>PV / SV / MV Trend</h2>
+              <div>
+                <h2>PV / SV / MV Trend</h2>
+                <p id="trend-note" class="trend-note">PV/SV: %Span · MV: %</p>
+              </div>
               <div class="legend" aria-label="PV、SV、MV 图例">
                 <span class="legend-item"><i class="legend-line pv-line"></i>PV</span>
                 <span class="legend-item"><i class="legend-line sp-line"></i>SV</span>

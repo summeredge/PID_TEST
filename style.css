@@ -410,7 +410,8 @@ h2 {
 }
 
 .model-select,
-.control-select {
+.control-select,
+.text-input {
   width: var(--control-input-width);
   flex: 0 0 var(--control-input-width);
   margin-right: calc(var(--control-unit-width) + 7px);
@@ -469,11 +470,28 @@ h2 {
   text-align: right;
 }
 
+.text-input {
+  min-height: 34px;
+  padding: 5px 7px;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  outline: none;
+  background: #f7f8f8;
+  color: var(--text);
+  font-family: Consolas, "Cascadia Mono", monospace;
+  font-size: 13px;
+}
+
 .numeric-input:hover {
   border-color: #466171;
 }
 
-.numeric-input:focus {
+.text-input:hover {
+  border-color: #466171;
+}
+
+.numeric-input:focus,
+.text-input:focus {
   border-color: var(--cyan);
   box-shadow: 0 0 0 2px rgb(66 215 232 / 12%);
 }
@@ -486,6 +504,11 @@ h2 {
 }
 
 .numeric-input.invalid {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.text-input.invalid {
   border-color: var(--danger);
   color: var(--danger);
 }
@@ -522,6 +545,41 @@ h2 {
   background: var(--panel-deep);
   color: var(--cyan);
   outline: none;
+}
+
+.range-readout-list {
+  margin-top: 6px;
+  border: 1px solid var(--line-soft);
+  background: var(--panel-deep);
+}
+
+.range-readout-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 74px 34px;
+  gap: 5px;
+  min-height: 25px;
+  align-items: center;
+  padding: 3px 7px;
+  border-bottom: 1px solid var(--line-soft);
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.range-readout-row:last-child {
+  border-bottom: 0;
+}
+
+.range-readout-row strong {
+  color: var(--cyan);
+  font-family: Consolas, "Cascadia Mono", monospace;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  text-align: right;
+}
+
+.range-readout-row > span:last-child {
+  text-align: center;
 }
 
 .disturbance-button[aria-pressed="true"] {
@@ -715,6 +773,13 @@ h2 {
   flex: 1;
 }
 
+.trend-note {
+  margin: 3px 0 0;
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.03em;
+}
+
 canvas {
   display: block;
   width: 100%;
@@ -855,7 +920,8 @@ summary:focus-visible {
   .action-button,
   .reset-button,
   .model-select,
-  .numeric-input {
+  .numeric-input,
+  .text-input {
     min-height: 40px;
   }
 }

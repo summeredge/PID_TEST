@@ -10,6 +10,7 @@ https://summeredge.github.io/PID_TEST/
 - 可切换三种过程模型：`FOPDT`、`Integrating / IPDT`、`SOPDT`。
 - 仿真倍速：`1× / 2× / 5× / 10×`，默认 `1×`。
 - Yokogawa 增量式 PID：`PB (%)`、`Ti`、`Td`；界面同时显示只读等效 `Kc`，MV 限制在 0–100%。
+- PV RANGE：以工程单位输入/显示 `LRV`、`URV`、`Unit`，并实时显示 PV、SV、Error 的 `%Span`。
 - MAN 模式可直接编辑 MV；AUTO ↔ MAN 使用基础 bumpless transfer。
 - 直接修改 SV 可进行设定值阶跃实验；支持 Step / Square / Sine 三种负荷扰动、Pause / Resume 和 Reset。
 - PV / SV / MV 单一原生 Canvas 实时滚动趋势图，不依赖第三方库。
@@ -30,6 +31,24 @@ https://summeredge.github.io/PID_TEST/
 
 默认算法为 `I-PD`。本仿真采用 `e = SV − PV`，以匹配当前正增益过程模型；这只是控制方向的符号约定，不改变 Yokogawa PID / I-PD / PI-D 的输入变量定义。
 
+### PV Range / %Span
+
+PV 和 SV 始终以现场工程单位输入和显示。控制器计算前使用当前合法量程转换为 `%Span`：
+
+```text
+PV% = 100 × (PV − LRV) / (URV − LRV)
+SV% = 100 × (SV − LRV) / (URV − LRV)
+Error% = 100 × (SV − PV) / (URV − LRV)
+```
+
+其中 `Span = URV − LRV`，必须满足 `URV > LRV`。非法量程会标记输入并继续使用最近一次合法量程，不会交换 LRV / URV，也不会让 PID 进入除零或 `NaN` 计算。在线修改量程不会重置 PV、SV、MV、过程或趋势；AUTO 下第一个周期保持当前 MV，并同步 PID 的 `%Span` 历史，避免人为 P/D 尖峰。
+
+PB 的定义保持不变：`Kc = 100 / PB`。因此在相同 PB 下，同一个工程量偏差的量程越大，控制器看到的 `%Span` 偏差越小，比例作用越弱。反过来，如果两个工况的 `%Span` 偏差相同，比例响应应基本相同。
+
+趋势图内部使用 `PV / SV = %Span` 和 `MV = %`，三条曲线共用 0–100 附近的百分数轴；Loop Summary 仍显示 PV / SV 工程值，MV 仍显示百分比。
+
+I-PD 的 P、D 项作用于 PV，I 项作用于 Deviation。要观察量程对 I-PD P/D 敏感度的影响，应使用 Step / Square / Sine Load Disturbance 制造 PV 变化，而不是只做 SV 阶跃。PI-D / PID 的 P 项作用于 Deviation，可以通过 SV 变化观察。
+
 ## 本地运行
 
 直接双击 `index.html` 即可打开。若希望模拟 GitHub Pages 的静态服务器，也可以在仓库根目录运行：
@@ -39,6 +58,12 @@ python -m http.server 8000
 ```
 
 然后访问 `http://localhost:8000/`。
+
+数值回归测试使用 Node.js 内置测试运行器：
+
+```text
+node --test tests/pv-range.test.js
+```
 
 ## GitHub Pages
 
@@ -94,3 +119,6 @@ Gain = 1      Tau = 30 s    Dead Time = 5 s
 3. 增大 `Tau` 或 `Dead Time`，观察过程变慢和控制难度增加。
 4. AUTO 运行时切到 MAN，修改 MV，再切回 AUTO，观察输出是否平滑接管。
 5. 打开 `Load Disturbance`，观察闭环恢复；最后点击 `Reset` 检查趋势和状态是否完整清零恢复。
+6. 将 `Algorithm = PI-D`、`PB = 50%`、`Ti = 0`、`Td = 0`，保持 `PV = 50`、`SV = 60`，比较 `0–100` 与 `0–200` 量程：Error `%Span` 应从 `10%` 变为 `5%`，比例作用约减半。
+7. 保持 `10%Span` 偏差：分别使用 `0–100 / PV=50 / SV=60` 和 `0–200 / PV=100 / SV=120`，比例响应应基本相同。
+8. 使用默认 `I-PD` 配合 Load Disturbance 比较 `0–100` 与 `0–200`，观察相同工程 PV 变化在更大量程下产生更小的 PV `%Span` 变化。
