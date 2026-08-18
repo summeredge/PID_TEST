@@ -8,6 +8,12 @@
   const SPEED_OPTIONS = Object.freeze([1, 2, 5, 10]);
   const PROCESS_MODELS = Object.freeze(["FOPDT", "INTEGRATING", "SOPDT"]);
   const PID_ALGORITHMS = Object.freeze(["I_PD", "PI_D", "PID"]);
+  const DISTURBANCE_TYPES = Object.freeze(["STEP", "SQUARE", "SINE"]);
+  const DISTURBANCE_LABELS = Object.freeze({
+    STEP: "Step",
+    SQUARE: "Square",
+    SINE: "Sine",
+  });
   const PID_ALGORITHM_DESCRIPTIONS = Object.freeze({
     I_PD: "P: PV · I: Deviation · D: PV",
     PI_D: "P: Deviation · I: Deviation · D: PV",
@@ -39,6 +45,8 @@
     tau2: 10,
     deadTime: 5,
     disturbance: -15,
+    disturbanceType: "STEP",
+    disturbancePeriod: 60,
   });
   const PB_MIN = 2;
   const PB_DEFAULT = 100 / DEFAULTS.kc;
@@ -73,7 +81,11 @@
     tau2Field: $("tau-2-field"),
     tauLabel: $("tau-label"),
     disturbanceInput: $("disturbance-input"),
+    disturbanceTypeInput: $("disturbance-type-input"),
+    disturbancePeriodInput: $("disturbance-period-input"),
+    disturbancePeriodField: $("disturbance-period-field"),
     disturbanceButton: $("disturbance-button"),
+    pauseButton: $("pause-button"),
     resetButton: $("reset-button"),
     simClock: $("sim-clock"),
     trendCount: $("trend-count"),
@@ -91,6 +103,7 @@
     [elements.tau2Input, DEFAULTS.tau2],
     [elements.deadTimeInput, DEFAULTS.deadTime],
     [elements.disturbanceInput, DEFAULTS.disturbance],
+    [elements.disturbancePeriodInput, DEFAULTS.disturbancePeriod],
   ]);
 
   let state;
@@ -213,7 +226,7 @@
     };
   }
 
-  function getDisturbance() {
+  function getDisturbanceAmplitude() {
     return readInput(
       elements.disturbanceInput,
       inputFallback(elements.disturbanceInput, DEFAULTS.disturbance),
@@ -222,10 +235,41 @@
     );
   }
 
+  function getDisturbancePeriod() {
+    return readInput(
+      elements.disturbancePeriodInput,
+      inputFallback(elements.disturbancePeriodInput, DEFAULTS.disturbancePeriod),
+      5,
+      600,
+    );
+  }
+
+  function getDisturbanceValue() {
+    if (!state.disturbanceEnabled) return 0;
+
+    const amplitude = getDisturbanceAmplitude();
+    const elapsed = Math.max(0, state.simTime - state.disturbanceStartTime);
+    switch (state.disturbanceType) {
+      case "SQUARE": {
+        const period = getDisturbancePeriod();
+        const phase = (elapsed % period) / period;
+        return phase < 0.5 ? amplitude : -amplitude;
+      }
+      case "SINE": {
+        const period = getDisturbancePeriod();
+        return amplitude * Math.sin((2 * Math.PI * elapsed) / period);
+      }
+      case "STEP":
+      default:
+        return amplitude;
+    }
+  }
+
   function setDefaultInputs() {
     inputDefaults.forEach((value, input) => writeInput(input, value));
     elements.processModelInput.value = DEFAULTS.processModel;
     elements.pidAlgorithmInput.value = DEFAULTS.pidAlgorithm;
+    elements.disturbanceTypeInput.value = DEFAULTS.disturbanceType;
     setProcessParameterInputs(DEFAULTS.processModel);
     writeInput(elements.spInput, DEFAULTS.sp);
     writeInput(elements.opInput, DEFAULTS.op);
@@ -245,6 +289,7 @@
       "tau-2-input": [0.1, 600],
       "dead-time-input": [0, 120],
       "disturbance-input": [-100, 100],
+      "disturbance-period-input": [5, 600],
     }[input.id];
     if (!limits) return;
 
@@ -261,8 +306,7 @@
   }
 
   function processInput() {
-    const load = state.disturbanceEnabled ? getDisturbance() : 0;
-    return finiteOr(state.op + load, state.op);
+    return finiteOr(state.op + getDisturbanceValue(), state.op);
   }
 
   function delayStepsFor(deadTime) {
@@ -435,6 +479,7 @@
   }
 
   function resetSimulation() {
+    const simulationPaused = state ? state.simulationPaused : false;
     setDefaultInputs();
     state = {
       simTime: 0,
@@ -454,6 +499,9 @@
       delayBuffer: [],
       lastProcessInput: DEFAULTS.op,
       disturbanceEnabled: false,
+      disturbanceType: DEFAULTS.disturbanceType,
+      disturbanceStartTime: 0,
+      simulationPaused,
       history: [],
       chartPvMin: 0,
       chartPvMax: 100,
@@ -506,6 +554,38 @@
     state.pidAlgorithm = nextAlgorithm;
     syncPidHistory();
     state.justEnteredAuto = state.mode === "AUTO";
+    updateUi();
+  }
+
+  function setDisturbanceType(type) {
+    const nextType = DISTURBANCE_TYPES.includes(type)
+      ? type
+      : DEFAULTS.disturbanceType;
+    elements.disturbanceTypeInput.value = nextType;
+    if (!state || nextType === state.disturbanceType) {
+      if (state) updateUi();
+      return;
+    }
+
+    state.disturbanceType = nextType;
+    state.disturbanceStartTime = state.simTime;
+    updateUi();
+  }
+
+  function setSimulationPaused(paused) {
+    if (!state) return;
+
+    const nextPaused = Boolean(paused);
+    if (nextPaused === state.simulationPaused) {
+      updateUi();
+      return;
+    }
+
+    state.simulationPaused = nextPaused;
+    if (!nextPaused) {
+      lastFrameTime = performance.now();
+      accumulator = 0;
+    }
     updateUi();
   }
 
@@ -670,8 +750,12 @@
   function updateUi() {
     if (!state) return;
 
-    elements.simulationStatus.textContent = "SIMULATION ONLINE";
-    elements.simulationStatus.classList.add("online");
+    const isPaused = state.simulationPaused;
+    elements.simulationStatus.textContent = isPaused
+      ? "SIMULATION PAUSED"
+      : "SIMULATION ONLINE";
+    elements.simulationStatus.classList.toggle("online", !isPaused);
+    elements.simulationStatus.classList.toggle("paused", isPaused);
     updateProcessUi();
     updatePidAlgorithmUi();
     elements.pvValue.textContent = formatNumber(state.pv);
@@ -696,25 +780,30 @@
       writeInput(elements.opInput, state.op);
     }
 
-    elements.disturbanceButton.textContent = state.disturbanceEnabled
-      ? "Load Disturbance: ON"
-      : "Load Disturbance: OFF";
+    const disturbanceLabel = DISTURBANCE_LABELS[state.disturbanceType] || DISTURBANCE_LABELS.STEP;
+    elements.disturbanceTypeInput.value = state.disturbanceType;
+    elements.disturbancePeriodField.classList.toggle("is-hidden", state.disturbanceType === "STEP");
+    elements.disturbanceButton.textContent = `${disturbanceLabel} Load: ${state.disturbanceEnabled ? "ON" : "OFF"}`;
     elements.disturbanceButton.setAttribute("aria-pressed", String(state.disturbanceEnabled));
+    elements.pauseButton.textContent = isPaused ? "Resume" : "Pause";
+    elements.pauseButton.setAttribute("aria-pressed", String(isPaused));
   }
 
   function animationLoop(now) {
     if (!lastFrameTime) lastFrameTime = now;
     const elapsed = Math.min(0.25, Math.max(0, (now - lastFrameTime) / 1000));
     lastFrameTime = now;
-    accumulator += elapsed * simulationSpeed;
+    if (!state.simulationPaused) {
+      accumulator += elapsed * simulationSpeed;
 
-    let steps = 0;
-    while (accumulator >= DT && steps < 20) {
-      stepSimulation();
-      accumulator -= DT;
-      steps += 1;
+      let steps = 0;
+      while (accumulator >= DT && steps < 20) {
+        stepSimulation();
+        accumulator -= DT;
+        steps += 1;
+      }
+      if (steps === 20 && accumulator >= DT) accumulator = 0;
     }
-    if (steps === 20 && accumulator >= DT) accumulator = 0;
 
     updateUi();
     drawCharts();
@@ -760,6 +849,7 @@
       elements.tau2Input,
       elements.deadTimeInput,
       elements.disturbanceInput,
+      elements.disturbancePeriodInput,
     ].forEach((input) => {
       input.addEventListener("change", () => normalizeInput(input));
     });
@@ -768,11 +858,19 @@
       setProcessModel(elements.processModelInput.value);
     });
 
+    elements.disturbanceTypeInput.addEventListener("change", () => {
+      setDisturbanceType(elements.disturbanceTypeInput.value);
+    });
+
     elements.disturbanceButton.addEventListener("click", () => {
       state.disturbanceEnabled = !state.disturbanceEnabled;
+      if (state.disturbanceEnabled) state.disturbanceStartTime = state.simTime;
       updateUi();
     });
 
+    elements.pauseButton.addEventListener("click", () => {
+      setSimulationPaused(!state.simulationPaused);
+    });
     elements.resetButton.addEventListener("click", resetSimulation);
     window.addEventListener("resize", drawCharts);
   }

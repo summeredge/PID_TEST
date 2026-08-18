@@ -11,7 +11,7 @@ https://summeredge.github.io/PID_TEST/
 - 仿真倍速：`1× / 2× / 5× / 10×`，默认 `1×`。
 - Yokogawa 增量式 PID：`PB (%)`、`Ti`、`Td`；界面同时显示只读等效 `Kc`，MV 限制在 0–100%。
 - MAN 模式可直接编辑 MV；AUTO ↔ MAN 使用基础 bumpless transfer。
-- 直接修改 SV 可进行设定值阶跃实验；可调幅值的 Load Disturbance、Reset。
+- 直接修改 SV 可进行设定值阶跃实验；支持 Step / Square / Sine 三种负荷扰动、Pause / Resume 和 Reset。
 - PV / SV / MV 单一原生 Canvas 实时滚动趋势图，不依赖第三方库。
 
 界面采用 DCS 常用术语：`SV = Set Value`、`PV = Process Value`、`MV = Manipulated Value`。
@@ -49,12 +49,28 @@ python -m http.server 8000
 过程动态采用：
 
 ```text
-dPV/dt = [Gain × (OP + Load) − PV] / Tau
+dPV/dt = [Gain × (MV + Disturbance) − PV] / Tau
 ```
 
 纯滞后通过内部 FIFO 延迟缓冲实现，而不是平移趋势数据。趋势每 `1.0 s` 记录一次，并保留最近 300 s。Reset 会恢复默认参数、默认工况、控制模式、积分与微分历史、延迟缓冲、扰动和趋势数据。
 
-仿真倍速只改变仿真时间相对于真实时间的推进速度。内部数值计算始终保持固定 `dt = 0.5 s`，因此改变倍速不会改变 PID 和 FOPDT 的离散计算参数。Reset 会保留当前倍速选择。
+仿真倍速只改变仿真时间相对于真实时间的推进速度。内部数值计算始终保持固定 `dt = 0.5 s`，因此改变倍速不会改变 PID 和 FOPDT 的离散计算参数。Reset 会保留当前倍速和 Pause 状态。
+
+### 负荷扰动
+
+负荷扰动注入过程输入，而不是直接修改 PV：
+
+```text
+effective input = MV + Disturbance
+```
+
+- `Step`：恒定输入偏置，默认 `Amplitude = -15%`，用于观察最大偏差、恢复时间、稳态偏差和 MV 补偿量。
+- `Square`：零均值的周期性矩形扰动，在每个周期内依次施加 `+A` 和 `-A`。
+- `Sine`：周期性正弦扰动，用于观察闭环对周期负荷变化的抑制能力。
+
+`Period` 仅对 `Square` 和 `Sine` 显示，范围为 `5–600 s`，默认 `60 s`。周期和波形都使用仿真时间计算，因此改变 `1× / 10×` 倍速只改变观看速度，Pause 时过程、PID、Dead Time、扰动相位和趋势会一起冻结。开启扰动或切换扰动类型会从当前仿真时刻重新开始波形周期；关闭扰动时输入偏置恢复为零。
+
+建议教学范围：`5–10%` 为小扰动，`10–20%` 为常规教学扰动，`20–30%` 为强扰动；超过 `30%` 时可能较快进入 MV `0–100%` 饱和场景。`Ti = 0` 时不要期待积分自动消除自衡过程的稳态偏差。
 
 ### 三种过程模型
 

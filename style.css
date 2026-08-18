@@ -14,6 +14,8 @@
   --green: #2c7d4f;
   --danger: #b5413b;
   --focus: #006f7a;
+  --control-input-width: 150px;
+  --control-unit-width: 24px;
   font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
   font-synthesis: none;
 }
@@ -98,6 +100,11 @@ button {
 
 #simulation-status.online {
   color: var(--green);
+  font-weight: 700;
+}
+
+#simulation-status.paused {
+  color: var(--amber);
   font-weight: 700;
 }
 
@@ -402,8 +409,11 @@ h2 {
   margin-bottom: 8px;
 }
 
-.model-select {
-  width: 140px;
+.model-select,
+.control-select {
+  width: var(--control-input-width);
+  flex: 0 0 var(--control-input-width);
+  margin-right: calc(var(--control-unit-width) + 7px);
   min-height: 34px;
   padding: 5px 7px;
   border: 1px solid var(--line);
@@ -429,14 +439,23 @@ h2 {
 }
 
 .input-with-unit {
-  justify-content: flex-end;
+  display: grid;
+  width: calc(var(--control-input-width) + var(--control-unit-width) + 7px);
+  flex: 0 0 calc(var(--control-input-width) + var(--control-unit-width) + 7px);
+  grid-template-columns: var(--control-input-width) var(--control-unit-width);
   gap: 7px;
+  justify-content: initial;
   color: var(--muted);
   font-size: 11px;
 }
 
+.input-with-unit > span {
+  width: var(--control-unit-width);
+  text-align: center;
+}
+
 .numeric-input {
-  width: 104px;
+  width: 100%;
   min-height: 34px;
   padding: 5px 7px;
   border: 1px solid var(--line);
@@ -530,8 +549,22 @@ h2 {
   margin-top: 7px;
 }
 
-.experiments-section .reset-button {
+.experiment-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
   margin-top: 7px;
+}
+
+.experiment-actions .action-button,
+.experiment-actions .reset-button {
+  margin-top: 0;
+}
+
+.pause-button[aria-pressed="true"] {
+  border-color: var(--amber);
+  background: rgb(156 106 0 / 12%);
+  color: var(--amber);
 }
 
 .advanced-settings {

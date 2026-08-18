@@ -155,9 +155,14 @@
                 <span class="section-note">EXPERIMENT</span>
               </div>
               <button id="disturbance-button" class="action-button disturbance-button" type="button" aria-pressed="false">
-                Load Disturbance: OFF
+                Step Load: OFF
               </button>
-              <button id="reset-button" class="reset-button" type="button">Reset</button>
+              <div class="experiment-actions">
+                <button id="pause-button" class="action-button pause-button" type="button" aria-pressed="false">
+                  Pause
+                </button>
+                <button id="reset-button" class="reset-button" type="button">Reset</button>
+              </div>
             </section>
 
             <details class="advanced-settings">
@@ -209,11 +214,26 @@
                     <span>LOAD DISTURBANCE</span>
                     <span class="section-note">INPUT BIAS</span>
                   </div>
+                  <label class="field-row" for="disturbance-type-input">
+                    <span class="field-label">Type</span>
+                    <select id="disturbance-type-input" class="model-select control-select">
+                      <option value="STEP">STEP</option>
+                      <option value="SQUARE">SQUARE</option>
+                      <option value="SINE">SINE</option>
+                    </select>
+                  </label>
                   <label class="field-row" for="disturbance-input">
                     <span class="field-label">Amplitude</span>
                     <span class="input-with-unit">
                       <input id="disturbance-input" class="numeric-input" type="number" min="-100" max="100" step="1" value="-15" />
                       <span>%</span>
+                    </span>
+                  </label>
+                  <label id="disturbance-period-field" class="field-row is-hidden" for="disturbance-period-input">
+                    <span class="field-label">Period</span>
+                    <span class="input-with-unit">
+                      <input id="disturbance-period-input" class="numeric-input" type="number" min="5" max="600" step="1" value="60" />
+                      <span>s</span>
                     </span>
                   </label>
                 </section>
