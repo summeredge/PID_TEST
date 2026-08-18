@@ -37,8 +37,10 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
+  line-height: 1.2;
 }
 
 button {
@@ -94,7 +96,7 @@ button {
   white-space: nowrap;
 }
 
-.simulation-status.online {
+#simulation-status.online {
   color: var(--green);
   font-weight: 700;
 }
@@ -181,7 +183,7 @@ button {
 }
 
 .panel-section {
-  padding: 12px 14px;
+  padding: 9px 14px;
   border-bottom: 1px solid var(--line-soft);
 }
 
@@ -205,7 +207,7 @@ button {
 }
 
 .section-heading {
-  margin-bottom: 10px;
+  margin-bottom: 7px;
 }
 
 h2 {
@@ -214,6 +216,7 @@ h2 {
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.12em;
+  line-height: 1.2;
   text-transform: uppercase;
 }
 
@@ -221,16 +224,17 @@ h2 {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin: 12px 0 6px;
+  margin: 8px 0 3px;
   color: var(--muted);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.11em;
+  line-height: 1.2;
   text-transform: uppercase;
 }
 
 .model-subsection-heading {
-  margin-top: 14px;
+  margin-top: 9px;
 }
 
 .section-note,
@@ -250,8 +254,8 @@ h2 {
   display: grid;
   grid-template-columns: 45px minmax(0, 1fr) 20px;
   align-items: baseline;
-  min-height: 50px;
-  padding: 6px 11px;
+  min-height: 44px;
+  padding: 5px 11px;
   border-bottom: 1px solid var(--line-soft);
 }
 
@@ -291,14 +295,14 @@ h2 {
 }
 
 .mode-control {
-  margin-top: 10px;
-  padding: 10px;
+  margin-top: 8px;
+  padding: 8px 10px;
   border: 1px solid var(--line);
   background: var(--panel-alt);
 }
 
 .mode-heading {
-  margin-bottom: 10px;
+  margin-bottom: 6px;
 }
 
 .field-label {
@@ -323,12 +327,12 @@ h2 {
 .mode-switch {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  margin-bottom: 10px;
+  margin-bottom: 7px;
   border: 1px solid var(--line);
 }
 
 .mode-button {
-  min-height: 40px;
+  min-height: 36px;
   padding: 8px 10px;
   border: 0;
   border-right: 1px solid var(--line);
@@ -362,11 +366,11 @@ h2 {
 .field-row {
   justify-content: space-between;
   gap: 12px;
-  min-height: 32px;
+  min-height: 30px;
 }
 
 .basic-section .field-row {
-  min-height: 34px;
+  min-height: 30px;
 }
 
 .basic-section {
@@ -379,7 +383,7 @@ h2 {
 
 .model-select {
   width: 140px;
-  min-height: 36px;
+  min-height: 34px;
   padding: 5px 7px;
   border: 1px solid var(--line);
   border-radius: 2px;
@@ -400,7 +404,7 @@ h2 {
 
 .parameter-grid {
   display: grid;
-  gap: 4px;
+  gap: 1px;
 }
 
 .input-with-unit {
@@ -412,6 +416,7 @@ h2 {
 
 .numeric-input {
   width: 104px;
+  min-height: 34px;
   padding: 5px 7px;
   border: 1px solid var(--line);
   border-radius: 2px;
@@ -451,16 +456,16 @@ h2 {
 }
 
 .helper-text {
-  margin: 8px 0 0;
+  margin: 5px 0 0;
   color: var(--muted);
   font-size: 11px;
-  line-height: 1.55;
+  line-height: 1.35;
 }
 
 .action-button,
 .reset-button {
   width: 100%;
-  min-height: 40px;
+  min-height: 36px;
   margin-top: 9px;
   border: 1px solid var(--line);
   border-radius: 2px;
@@ -527,11 +532,11 @@ h2 {
 
 .advanced-settings summary {
   display: flex;
-  min-height: 42px;
+  min-height: 40px;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 9px 14px;
+  padding: 8px 14px;
   color: var(--text);
   cursor: pointer;
   font-size: 12px;
@@ -556,11 +561,11 @@ h2 {
 }
 
 .advanced-content {
-  padding: 0 14px 7px;
+  padding: 0 14px 5px;
 }
 
 .advanced-block {
-  padding: 8px 0 10px;
+  padding: 7px 0 8px;
   border-top: 1px solid var(--line-soft);
 }
 
@@ -581,11 +586,11 @@ h2 {
 }
 
 .simulation-speed-row {
-  min-height: 40px;
+  min-height: 36px;
 }
 
 .simulation-meta {
-  margin-top: 7px;
+  margin-top: 5px;
   color: var(--muted);
   font-size: 10px;
 }
@@ -669,19 +674,6 @@ h2 {
   flex: 1;
 }
 
-.canvas-empty {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  padding: 7px 11px;
-  border: 1px solid var(--line-soft);
-  background: rgb(243 245 245 / 90%);
-  color: var(--muted);
-  font-size: 12px;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-}
-
 canvas {
   display: block;
   width: 100%;
@@ -743,6 +735,14 @@ summary:focus-visible {
 
   .trend-area {
     min-height: 720px;
+  }
+
+  .mode-button,
+  .action-button,
+  .reset-button,
+  .model-select,
+  .numeric-input {
+    min-height: 40px;
   }
 }
 

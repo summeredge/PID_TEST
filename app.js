@@ -69,8 +69,6 @@
     simulationStatus: $("simulation-status"),
     spPvCanvas: $("sp-pv-chart"),
     opCanvas: $("op-chart"),
-    spPvEmpty: $("sp-pv-empty"),
-    opEmpty: $("op-empty"),
     speedButtons: [...document.querySelectorAll(".speed-button")],
   };
 
@@ -569,10 +567,6 @@
   }
 
   function drawChart(canvas, options) {
-    if (options.emptyElement) {
-      options.emptyElement.classList.toggle("is-hidden", state.history.length > 0);
-    }
-
     const sized = resizeCanvas(canvas);
     if (!sized) return;
 
@@ -599,14 +593,12 @@
         { key: "sp", color: "#9c6a00" },
         { key: "pv", color: "#007b87" },
       ],
-      emptyElement: elements.spPvEmpty,
     });
     drawChart(elements.opCanvas, {
       yMin: 0,
       yMax: 100,
       yTicks: 4,
       series: [{ key: "op", color: "#b45b1f" }],
-      emptyElement: elements.opEmpty,
     });
   }
 
