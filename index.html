@@ -20,25 +20,17 @@
         </div>
         <div class="topbar-status" aria-label="仿真状态">
           <span class="status-dot" aria-hidden="true"></span>
-          <span>SIMULATION ONLINE</span>
+          <span id="simulation-status">SIMULATION INITIALIZING</span>
           <span class="separator">|</span>
           <span>FIXED STEP 0.5 s</span>
-          <span class="separator">|</span>
-          <span class="speed-control-label">SIM SPEED</span>
-          <div class="speed-switch" role="group" aria-label="仿真倍速">
-            <button class="speed-button active" type="button" data-speed="1" aria-pressed="true">1×</button>
-            <button class="speed-button" type="button" data-speed="2" aria-pressed="false">2×</button>
-            <button class="speed-button" type="button" data-speed="5" aria-pressed="false">5×</button>
-            <button class="speed-button" type="button" data-speed="10" aria-pressed="false">10×</button>
-          </div>
         </div>
       </header>
 
       <main class="workspace">
-        <aside class="control-panel" aria-label="控制参数和实时数值">
+        <aside class="control-panel primary-controls" aria-label="核心控制">
           <section class="panel-section status-section">
             <div class="section-heading">
-              <h2>回路状态</h2>
+              <h2>LOOP SUMMARY</h2>
               <span id="sim-clock" class="sim-clock">t = 0.0 s</span>
             </div>
 
@@ -86,10 +78,23 @@
             </div>
           </section>
 
-          <section class="panel-section">
+          <section class="panel-section basic-section">
             <div class="section-heading">
-              <h2>PID</h2>
-              <span class="section-note">ISA / Ideal</span>
+              <h2>基础控制</h2>
+              <span class="section-note">BASIC</span>
+            </div>
+
+            <label class="field-row" for="sp-input">
+              <span class="field-label">SP</span>
+              <span class="input-with-unit">
+                <input id="sp-input" class="numeric-input" type="number" min="0" max="100" step="0.5" value="50" />
+                <span>%</span>
+              </span>
+            </label>
+
+            <div class="subsection-heading">
+              <span>PID</span>
+              <span>ISA / Ideal</span>
             </div>
             <div class="parameter-grid">
               <label class="field-row" for="kc-input">
@@ -114,96 +119,27 @@
                 </span>
               </label>
             </div>
-            <p class="helper-text">Ti = 0 关闭积分；Td 作用于 PV，避免 SP 阶跃微分冲击。</p>
-          </section>
+            <p class="helper-text">Ti = 0 关闭积分；Td 作用于 PV。</p>
 
-          <section class="panel-section">
-            <div class="section-heading">
-              <h2>PROCESS</h2>
+            <div class="subsection-heading model-subsection-heading">
+              <span>PROCESS MODEL</span>
               <span id="process-model-note" class="section-note">FOPDT</span>
             </div>
             <label class="field-row process-model-row" for="process-model-input">
-              <span class="field-label">Process Model</span>
+              <span class="field-label">Model</span>
               <select id="process-model-input" class="model-select">
                 <option value="FOPDT">FOPDT</option>
                 <option value="INTEGRATING">Integrating</option>
                 <option value="SOPDT">SOPDT</option>
               </select>
             </label>
-            <div class="parameter-grid">
-              <label id="gain-field" class="field-row" for="gain-input">
-                <span class="field-label">Gain</span>
-                <span class="input-with-unit">
-                  <input id="gain-input" class="numeric-input" type="number" min="0.01" max="10" step="0.05" value="1" />
-                  <span>—</span>
-                </span>
-              </label>
-              <label id="tau-field" class="field-row" for="tau-input">
-                <span id="tau-label" class="field-label">Tau</span>
-                <span class="input-with-unit">
-                  <input id="tau-input" class="numeric-input" type="number" min="0.1" max="600" step="0.5" value="30" />
-                  <span>s</span>
-                </span>
-              </label>
-              <label id="tau-2-field" class="field-row is-hidden" for="tau-2-input">
-                <span class="field-label">Tau 2</span>
-                <span class="input-with-unit">
-                  <input id="tau-2-input" class="numeric-input" type="number" min="0.1" max="600" step="0.5" value="10" />
-                  <span>s</span>
-                </span>
-              </label>
-              <label id="dead-time-field" class="field-row" for="dead-time-input">
-                <span class="field-label">Dead Time</span>
-                <span class="input-with-unit">
-                  <input id="dead-time-input" class="numeric-input" type="number" min="0" max="120" step="0.5" value="5" />
-                  <span>s</span>
-                </span>
-              </label>
-            </div>
-            <p id="process-description" class="helper-text">一阶自衡：输出改变后 PV 最终达到新的稳定值。</p>
           </section>
-
-          <section class="panel-section experiments-section">
-            <div class="section-heading">
-              <h2>教学实验</h2>
-              <span class="section-note">ONLINE</span>
-            </div>
-            <label class="field-row" for="sp-input">
-              <span class="field-label">SP</span>
-              <span class="input-with-unit">
-                <input id="sp-input" class="numeric-input" type="number" min="0" max="100" step="0.5" value="50" />
-                <span>%</span>
-              </span>
-            </label>
-            <button id="sp-step-button" class="action-button" type="button">SP Step (50 → 70)</button>
-
-            <label class="field-row" for="disturbance-input">
-              <span class="field-label">Load 幅值</span>
-              <span class="input-with-unit">
-                <input id="disturbance-input" class="numeric-input" type="number" min="-100" max="100" step="1" value="-15" />
-                <span>%</span>
-              </span>
-            </label>
-            <button id="disturbance-button" class="action-button disturbance-button" type="button" aria-pressed="false">
-              Load Disturbance: OFF
-            </button>
-
-            <button id="reset-button" class="reset-button" type="button">Reset</button>
-          </section>
-
-          <div class="panel-footer">
-            <span>Trend sample: 1.0 s</span>
-            <span id="trend-count">0 samples</span>
-          </div>
         </aside>
 
         <section class="trend-area" aria-label="实时趋势图">
           <section class="trend-panel primary-trend">
             <div class="trend-heading">
-              <div>
-                <div class="eyebrow">LOOP TREND</div>
-                <h2>SP / PV Trend</h2>
-              </div>
+              <h2>SP / PV Trend</h2>
               <div class="legend" aria-label="SP 与 PV 图例">
                 <span class="legend-item"><i class="legend-line sp-line"></i>SP</span>
                 <span class="legend-item"><i class="legend-line pv-line"></i>PV</span>
@@ -211,15 +147,13 @@
             </div>
             <div class="canvas-wrap">
               <canvas id="sp-pv-chart" aria-label="SP 与 PV 实时趋势"></canvas>
+              <div id="sp-pv-empty" class="canvas-empty">暂无趋势数据</div>
             </div>
           </section>
 
           <section class="trend-panel op-trend">
             <div class="trend-heading">
-              <div>
-                <div class="eyebrow">MANIPULATED VARIABLE</div>
-                <h2>OP Trend</h2>
-              </div>
+              <h2>OP Trend</h2>
               <div class="legend" aria-label="OP 图例">
                 <span class="legend-item"><i class="legend-line op-line"></i>OP</span>
                 <span class="op-range">0–100 %</span>
@@ -227,9 +161,109 @@
             </div>
             <div class="canvas-wrap">
               <canvas id="op-chart" aria-label="OP 实时趋势"></canvas>
+              <div id="op-empty" class="canvas-empty">暂无趋势数据</div>
             </div>
           </section>
         </section>
+
+        <aside class="control-panel secondary-controls" aria-label="教学实验和高级设置">
+          <section class="panel-section experiments-section">
+            <div class="section-heading">
+              <h2>教学实验</h2>
+              <span class="section-note">EXPERIMENT</span>
+            </div>
+            <button id="sp-step-button" class="action-button primary-action" type="button">SP Step (50 → 70)</button>
+            <button id="disturbance-button" class="action-button disturbance-button" type="button" aria-pressed="false">
+              Load Disturbance: OFF
+            </button>
+            <button id="reset-button" class="reset-button" type="button">Reset</button>
+          </section>
+
+          <details class="advanced-settings">
+            <summary>
+              <span>高级设置</span>
+              <span class="summary-note">PROCESS / SIMULATION</span>
+            </summary>
+            <div class="advanced-content">
+              <section class="advanced-block">
+                <div class="subsection-heading">
+                  <span>PROCESS PARAMETERS</span>
+                  <span id="advanced-model-note" class="section-note">FOPDT</span>
+                </div>
+                <div class="parameter-grid">
+                  <label id="gain-field" class="field-row" for="gain-input">
+                    <span class="field-label">Gain</span>
+                    <span class="input-with-unit">
+                      <input id="gain-input" class="numeric-input" type="number" min="0.01" max="10" step="0.05" value="1" />
+                      <span>—</span>
+                    </span>
+                  </label>
+                  <label id="tau-field" class="field-row" for="tau-input">
+                    <span id="tau-label" class="field-label">Tau</span>
+                    <span class="input-with-unit">
+                      <input id="tau-input" class="numeric-input" type="number" min="0.1" max="600" step="0.5" value="30" />
+                      <span>s</span>
+                    </span>
+                  </label>
+                  <label id="tau-2-field" class="field-row is-hidden" for="tau-2-input">
+                    <span class="field-label">Tau 2</span>
+                    <span class="input-with-unit">
+                      <input id="tau-2-input" class="numeric-input" type="number" min="0.1" max="600" step="0.5" value="10" />
+                      <span>s</span>
+                    </span>
+                  </label>
+                  <label id="dead-time-field" class="field-row" for="dead-time-input">
+                    <span class="field-label">Dead Time</span>
+                    <span class="input-with-unit">
+                      <input id="dead-time-input" class="numeric-input" type="number" min="0" max="120" step="0.5" value="5" />
+                      <span>s</span>
+                    </span>
+                  </label>
+                </div>
+                <p id="process-description" class="helper-text">一阶自衡：输出改变后 PV 最终达到新的稳定值。</p>
+              </section>
+
+              <section class="advanced-block">
+                <div class="subsection-heading">
+                  <span>LOAD DISTURBANCE</span>
+                  <span class="section-note">INPUT BIAS</span>
+                </div>
+                <label class="field-row" for="disturbance-input">
+                  <span class="field-label">Amplitude</span>
+                  <span class="input-with-unit">
+                    <input id="disturbance-input" class="numeric-input" type="number" min="-100" max="100" step="1" value="-15" />
+                    <span>%</span>
+                  </span>
+                </label>
+              </section>
+
+              <section class="advanced-block simulation-block">
+                <div class="subsection-heading">
+                  <span>SIMULATION</span>
+                  <span class="section-note">PLAYBACK</span>
+                </div>
+                <div class="simulation-speed-row">
+                  <span class="field-label">SIM SPEED</span>
+                  <div class="speed-switch" role="group" aria-label="仿真倍速">
+                    <button class="speed-button active" type="button" data-speed="1" aria-pressed="true">1×</button>
+                    <button class="speed-button" type="button" data-speed="2" aria-pressed="false">2×</button>
+                    <button class="speed-button" type="button" data-speed="5" aria-pressed="false">5×</button>
+                    <button class="speed-button" type="button" data-speed="10" aria-pressed="false">10×</button>
+                  </div>
+                </div>
+                <div class="simulation-meta">
+                  <span>Fixed step <strong>0.5 s</strong></span>
+                  <span>Trend sample <strong>1.0 s</strong></span>
+                </div>
+              </section>
+            </div>
+          </details>
+
+          <div class="panel-footer">
+            <span>Trend history</span>
+            <span id="trend-count">0 samples</span>
+          </div>
+        </aside>
       </main>
     </div>
   </body>

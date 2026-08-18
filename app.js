@@ -55,6 +55,7 @@
     deadTimeInput: $("dead-time-input"),
     processModelInput: $("process-model-input"),
     processModelNote: $("process-model-note"),
+    advancedModelNote: $("advanced-model-note"),
     processDescription: $("process-description"),
     tauField: $("tau-field"),
     tau2Field: $("tau-2-field"),
@@ -65,8 +66,11 @@
     resetButton: $("reset-button"),
     simClock: $("sim-clock"),
     trendCount: $("trend-count"),
+    simulationStatus: $("simulation-status"),
     spPvCanvas: $("sp-pv-chart"),
     opCanvas: $("op-chart"),
+    spPvEmpty: $("sp-pv-empty"),
+    opEmpty: $("op-empty"),
     speedButtons: [...document.querySelectorAll(".speed-button")],
   };
 
@@ -109,11 +113,14 @@
     const parsed = raw === "" ? Number.NaN : Number(raw);
     if (!Number.isFinite(parsed)) {
       input.classList.add("invalid");
+      input.setAttribute("aria-invalid", "true");
       return fallback;
     }
 
     const value = clamp(parsed, min, max);
-    input.classList.remove("invalid");
+    const isOutOfRange = parsed < min || parsed > max;
+    input.classList.toggle("invalid", isOutOfRange);
+    input.setAttribute("aria-invalid", String(isOutOfRange));
     input.dataset.lastValid = String(value);
     return value;
   }
@@ -123,6 +130,7 @@
     input.value = String(Math.round(safeValue * 1000) / 1000);
     input.dataset.lastValid = String(safeValue);
     input.classList.remove("invalid");
+    input.setAttribute("aria-invalid", "false");
   }
 
   function getPidParams() {
@@ -194,6 +202,15 @@
       "disturbance-input": [-100, 100],
     }[input.id];
     if (!limits) return;
+
+    const raw = input.value.trim();
+    const parsed = raw === "" ? Number.NaN : Number(raw);
+    if (!Number.isFinite(parsed) || parsed < limits[0] || parsed > limits[1]) {
+      input.classList.add("invalid");
+      input.setAttribute("aria-invalid", "true");
+      return;
+    }
+
     const value = readInput(input, fallback, limits[0], limits[1]);
     writeInput(input, value);
   }
@@ -396,6 +413,7 @@
     const isSopdt = model === "SOPDT";
     elements.processModelInput.value = model;
     elements.processModelNote.textContent = model;
+    elements.advancedModelNote.textContent = model;
     elements.processDescription.textContent = PROCESS_DESCRIPTIONS[model];
     elements.tauLabel.textContent = isSopdt ? "Tau 1" : "Tau";
     elements.tauField.classList.toggle("is-hidden", isIntegrating);
@@ -551,6 +569,10 @@
   }
 
   function drawChart(canvas, options) {
+    if (options.emptyElement) {
+      options.emptyElement.classList.toggle("is-hidden", state.history.length > 0);
+    }
+
     const sized = resizeCanvas(canvas);
     if (!sized) return;
 
@@ -577,18 +599,22 @@
         { key: "sp", color: "#9c6a00" },
         { key: "pv", color: "#007b87" },
       ],
+      emptyElement: elements.spPvEmpty,
     });
     drawChart(elements.opCanvas, {
       yMin: 0,
       yMax: 100,
       yTicks: 4,
       series: [{ key: "op", color: "#b45b1f" }],
+      emptyElement: elements.opEmpty,
     });
   }
 
   function updateUi() {
     if (!state) return;
 
+    elements.simulationStatus.textContent = "SIMULATION ONLINE";
+    elements.simulationStatus.classList.add("online");
     updateProcessUi();
     elements.pvValue.textContent = formatNumber(state.pv);
     elements.spValue.textContent = formatNumber(state.sp);
