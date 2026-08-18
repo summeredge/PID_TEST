@@ -120,24 +120,39 @@
           <section class="panel-section">
             <div class="section-heading">
               <h2>PROCESS</h2>
-              <span class="section-note">FOPDT</span>
+              <span id="process-model-note" class="section-note">FOPDT</span>
             </div>
+            <label class="field-row process-model-row" for="process-model-input">
+              <span class="field-label">Process Model</span>
+              <select id="process-model-input" class="model-select">
+                <option value="FOPDT">FOPDT</option>
+                <option value="INTEGRATING">Integrating</option>
+                <option value="SOPDT">SOPDT</option>
+              </select>
+            </label>
             <div class="parameter-grid">
-              <label class="field-row" for="gain-input">
+              <label id="gain-field" class="field-row" for="gain-input">
                 <span class="field-label">Gain</span>
                 <span class="input-with-unit">
                   <input id="gain-input" class="numeric-input" type="number" min="0.01" max="10" step="0.05" value="1" />
                   <span>—</span>
                 </span>
               </label>
-              <label class="field-row" for="tau-input">
-                <span class="field-label">Tau</span>
+              <label id="tau-field" class="field-row" for="tau-input">
+                <span id="tau-label" class="field-label">Tau</span>
                 <span class="input-with-unit">
                   <input id="tau-input" class="numeric-input" type="number" min="0.1" max="600" step="0.5" value="30" />
                   <span>s</span>
                 </span>
               </label>
-              <label class="field-row" for="dead-time-input">
+              <label id="tau-2-field" class="field-row is-hidden" for="tau-2-input">
+                <span class="field-label">Tau 2</span>
+                <span class="input-with-unit">
+                  <input id="tau-2-input" class="numeric-input" type="number" min="0.1" max="600" step="0.5" value="10" />
+                  <span>s</span>
+                </span>
+              </label>
+              <label id="dead-time-field" class="field-row" for="dead-time-input">
                 <span class="field-label">Dead Time</span>
                 <span class="input-with-unit">
                   <input id="dead-time-input" class="numeric-input" type="number" min="0" max="120" step="0.5" value="5" />
@@ -145,7 +160,7 @@
                 </span>
               </label>
             </div>
-            <p class="helper-text">过程：dPV/dt = [Gain × (OP + Load) − PV] / Tau。</p>
+            <p id="process-description" class="helper-text">一阶自衡：输出改变后 PV 最终达到新的稳定值。</p>
           </section>
 
           <section class="panel-section experiments-section">

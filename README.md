@@ -7,6 +7,7 @@ https://summeredge.github.io/PID_TEST/
 
 - 实时显示 PV、SP、OP，并提供清晰的 AUTO / MAN 状态。
 - 固定 `dt = 0.5 s` 的 FOPDT 过程模型：`Gain`、`Tau`、`Dead Time`。
+- 可切换三种过程模型：`FOPDT`、`Integrating / IPDT`、`SOPDT`。
 - 仿真倍速：`1× / 2× / 5× / 10×`，默认 `1×`。
 - ISA / Ideal 形式 PID：`Kc`、`Ti`、`Td`；微分作用于 PV，OP 限制在 0–100%。
 - MAN 模式可直接编辑 OP；AUTO ↔ MAN 使用基础 bumpless transfer。
@@ -38,6 +39,12 @@ dPV/dt = [Gain × (OP + Load) − PV] / Tau
 纯滞后通过内部 FIFO 延迟缓冲实现，而不是平移趋势数据。趋势每 `1.0 s` 记录一次，并保留最近 300 s。Reset 会恢复默认参数、默认工况、控制模式、积分与微分历史、延迟缓冲、扰动和趋势数据。
 
 仿真倍速只改变仿真时间相对于真实时间的推进速度。内部数值计算始终保持固定 `dt = 0.5 s`，因此改变倍速不会改变 PID 和 FOPDT 的离散计算参数。Reset 会保留当前倍速选择。
+
+### 三种过程模型
+
+- `FOPDT`：`G(s) = K e^(-θs) / (τs + 1)`，输出改变后 PV 最终达到新的稳定值，适合温度、压力、流量等自衡过程。
+- `Integrating / IPDT`：`G(s) = K e^(-θs) / s`，`OP = 50%` 时保持平衡，偏离该 Bias 后 PV 持续变化，适合液位等非自衡过程。Gain 单位为 `PV unit / (%OP · s)`。
+- `SOPDT`：`G(s) = K e^(-θs) / ((τ1s + 1)(τ2s + 1))`，由两个串联一阶惯性环节组成，响应更缓慢、更平滑。
 
 默认工况：
 

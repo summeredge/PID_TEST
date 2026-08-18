@@ -329,6 +329,30 @@ h2 {
   min-height: 32px;
 }
 
+.process-model-row {
+  margin-bottom: 8px;
+}
+
+.model-select {
+  width: 140px;
+  padding: 5px 7px;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  outline: none;
+  background: #f7f8f8;
+  color: var(--text);
+  font-size: 12px;
+}
+
+.model-select:focus {
+  border-color: var(--cyan);
+  box-shadow: 0 0 0 2px rgb(66 215 232 / 12%);
+}
+
+.is-hidden {
+  display: none !important;
+}
+
 .parameter-grid {
   display: grid;
   gap: 4px;

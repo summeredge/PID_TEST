@@ -6,16 +6,30 @@
   const HISTORY_SECONDS = 300;
   const CHART_WINDOW_SECONDS = 120;
   const SPEED_OPTIONS = Object.freeze([1, 2, 5, 10]);
+  const PROCESS_MODELS = Object.freeze(["FOPDT", "INTEGRATING", "SOPDT"]);
+  const INTEGRATING_BIAS_OP = 50;
+  const PROCESS_DEFAULTS = Object.freeze({
+    FOPDT: Object.freeze({ gain: 1, tau: 30, tau2: 10, deadTime: 5 }),
+    INTEGRATING: Object.freeze({ gain: 0.05, tau: 30, tau2: 10, deadTime: 3 }),
+    SOPDT: Object.freeze({ gain: 1, tau: 20, tau2: 10, deadTime: 5 }),
+  });
+  const PROCESS_DESCRIPTIONS = Object.freeze({
+    FOPDT: "一阶自衡：输出改变后 PV 最终达到新的稳定值。",
+    INTEGRATING: "非自衡：输出偏离平衡点时 PV 将持续变化。",
+    SOPDT: "二阶自衡：两个惯性环节串联，响应更缓慢、更平滑。",
+  });
 
   const DEFAULTS = Object.freeze({
     sp: 50,
     pv: 50,
     op: 50,
+    processModel: "FOPDT",
     kc: 2,
     ti: 20,
     td: 2,
     gain: 1,
     tau: 30,
+    tau2: 10,
     deadTime: 5,
     disturbance: -15,
   });
@@ -37,7 +51,14 @@
     tdInput: $("td-input"),
     gainInput: $("gain-input"),
     tauInput: $("tau-input"),
+    tau2Input: $("tau-2-input"),
     deadTimeInput: $("dead-time-input"),
+    processModelInput: $("process-model-input"),
+    processModelNote: $("process-model-note"),
+    processDescription: $("process-description"),
+    tauField: $("tau-field"),
+    tau2Field: $("tau-2-field"),
+    tauLabel: $("tau-label"),
     disturbanceInput: $("disturbance-input"),
     spStepButton: $("sp-step-button"),
     disturbanceButton: $("disturbance-button"),
@@ -55,6 +76,7 @@
     [elements.tdInput, DEFAULTS.td],
     [elements.gainInput, DEFAULTS.gain],
     [elements.tauInput, DEFAULTS.tau],
+    [elements.tau2Input, DEFAULTS.tau2],
     [elements.deadTimeInput, DEFAULTS.deadTime],
     [elements.disturbanceInput, DEFAULTS.disturbance],
   ]);
@@ -111,10 +133,26 @@
     };
   }
 
+  function selectedProcessModel() {
+    return PROCESS_MODELS.includes(elements.processModelInput.value)
+      ? elements.processModelInput.value
+      : DEFAULTS.processModel;
+  }
+
+  function setProcessParameterInputs(model) {
+    const defaults = PROCESS_DEFAULTS[model] || PROCESS_DEFAULTS.FOPDT;
+    writeInput(elements.gainInput, defaults.gain);
+    writeInput(elements.tauInput, defaults.tau);
+    writeInput(elements.tau2Input, defaults.tau2);
+    writeInput(elements.deadTimeInput, defaults.deadTime);
+  }
+
   function getProcessParams() {
     return {
+      model: selectedProcessModel(),
       gain: readInput(elements.gainInput, inputFallback(elements.gainInput, DEFAULTS.gain), 0.01, 10),
       tau: readInput(elements.tauInput, inputFallback(elements.tauInput, DEFAULTS.tau), 0.1, 600),
+      tau2: readInput(elements.tau2Input, inputFallback(elements.tau2Input, DEFAULTS.tau2), 0.1, 600),
       deadTime: readInput(
         elements.deadTimeInput,
         inputFallback(elements.deadTimeInput, DEFAULTS.deadTime),
@@ -135,6 +173,8 @@
 
   function setDefaultInputs() {
     inputDefaults.forEach((value, input) => writeInput(input, value));
+    elements.processModelInput.value = DEFAULTS.processModel;
+    setProcessParameterInputs(DEFAULTS.processModel);
     writeInput(elements.spInput, DEFAULTS.sp);
     writeInput(elements.opInput, DEFAULTS.op);
   }
@@ -149,6 +189,7 @@
       "td-input": [0, 120],
       "gain-input": [0.01, 10],
       "tau-input": [0.1, 600],
+      "tau-2-input": [0.1, 600],
       "dead-time-input": [0, 120],
       "disturbance-input": [-100, 100],
     }[input.id];
@@ -232,6 +273,32 @@
     updateUi();
   }
 
+  function stepFopdt(params, delayedInput) {
+    const rate = (params.gain * delayedInput - state.pv) / Math.max(params.tau, 0.1);
+    state.pv = finiteOr(state.pv + DT * rate, state.pv);
+  }
+
+  function stepIntegrating(params, delayedInput) {
+    state.pv = finiteOr(
+      state.pv + DT * params.gain * (delayedInput - INTEGRATING_BIAS_OP),
+      state.pv,
+    );
+  }
+
+  function stepSopdt(params, delayedInput) {
+    const tau1 = Math.max(params.tau, 0.1);
+    const tau2 = Math.max(params.tau2, 0.1);
+    state.processStage1 = finiteOr(
+      state.processStage1 + DT * (params.gain * delayedInput - state.processStage1) / tau1,
+      state.processStage1,
+    );
+    state.processStage1 = clamp(state.processStage1, -1000, 1000);
+    state.pv = finiteOr(
+      state.pv + DT * (state.processStage1 - state.pv) / tau2,
+      state.pv,
+    );
+  }
+
   function stepProcess(params) {
     syncDelayBuffer(params);
     const input = processInput();
@@ -243,9 +310,20 @@
     }
 
     const pvBefore = state.pv;
-    const rate = (params.gain * delayedInput - pvBefore) / Math.max(params.tau, 0.1);
-    state.pv = finiteOr(pvBefore + DT * rate, pvBefore);
-    state.pv = clamp(state.pv, -1000, 1000);
+    switch (state.processModel) {
+      case "INTEGRATING":
+        stepIntegrating(params, delayedInput);
+        break;
+      case "SOPDT":
+        stepSopdt(params, delayedInput);
+        break;
+      case "FOPDT":
+      default:
+        stepFopdt(params, delayedInput);
+        break;
+    }
+
+    state.pv = clamp(finiteOr(state.pv, pvBefore), -1000, 1000);
     state.lastProcessInput = input;
     state.previousPv = pvBefore;
   }
@@ -293,6 +371,8 @@
       pv: DEFAULTS.pv,
       op: DEFAULTS.op,
       mode: "AUTO",
+      processModel: DEFAULTS.processModel,
+      processStage1: DEFAULTS.pv,
       integral: DEFAULTS.op / DEFAULTS.kc * DEFAULTS.ti,
       previousPv: DEFAULTS.pv,
       outputBias: 0,
@@ -307,6 +387,33 @@
     recordTrendSample();
     lastFrameTime = performance.now();
     accumulator = 0;
+    updateUi();
+  }
+
+  function updateProcessUi() {
+    const model = state.processModel;
+    const isIntegrating = model === "INTEGRATING";
+    const isSopdt = model === "SOPDT";
+    elements.processModelInput.value = model;
+    elements.processModelNote.textContent = model;
+    elements.processDescription.textContent = PROCESS_DESCRIPTIONS[model];
+    elements.tauLabel.textContent = isSopdt ? "Tau 1" : "Tau";
+    elements.tauField.classList.toggle("is-hidden", isIntegrating);
+    elements.tau2Field.classList.toggle("is-hidden", !isSopdt);
+  }
+
+  function setProcessModel(model) {
+    const nextModel = PROCESS_MODELS.includes(model) ? model : DEFAULTS.processModel;
+    if (nextModel === state.processModel) {
+      updateProcessUi();
+      return;
+    }
+
+    setProcessParameterInputs(nextModel);
+    state.processModel = nextModel;
+    state.processStage1 = state.pv;
+    state.previousPv = state.pv;
+    initializeDelayBuffer(getProcessParams().deadTime);
     updateUi();
   }
 
@@ -482,6 +589,7 @@
   function updateUi() {
     if (!state) return;
 
+    updateProcessUi();
     elements.pvValue.textContent = formatNumber(state.pv);
     elements.spValue.textContent = formatNumber(state.sp);
     elements.opValue.textContent = formatNumber(state.op);
@@ -557,10 +665,15 @@
       elements.tdInput,
       elements.gainInput,
       elements.tauInput,
+      elements.tau2Input,
       elements.deadTimeInput,
       elements.disturbanceInput,
     ].forEach((input) => {
       input.addEventListener("change", () => normalizeInput(input));
+    });
+
+    elements.processModelInput.addEventListener("change", () => {
+      setProcessModel(elements.processModelInput.value);
     });
 
     elements.spStepButton.addEventListener("click", () => {
