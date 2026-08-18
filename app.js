@@ -7,6 +7,12 @@
   const CHART_WINDOW_SECONDS = 120;
   const SPEED_OPTIONS = Object.freeze([1, 2, 5, 10]);
   const PROCESS_MODELS = Object.freeze(["FOPDT", "INTEGRATING", "SOPDT"]);
+  const PID_ALGORITHMS = Object.freeze(["I_PD", "PI_D", "PID"]);
+  const PID_ALGORITHM_DESCRIPTIONS = Object.freeze({
+    I_PD: "P: PV · I: Deviation · D: PV",
+    PI_D: "P: Deviation · I: Deviation · D: PV",
+    PID: "P: Deviation · I: Deviation · D: Deviation",
+  });
   const INTEGRATING_BIAS_OP = 50;
   const PROCESS_DEFAULTS = Object.freeze({
     FOPDT: Object.freeze({ gain: 1, tau: 30, tau2: 10, deadTime: 5 }),
@@ -24,6 +30,7 @@
     pv: 50,
     op: 50,
     processModel: "FOPDT",
+    pidAlgorithm: "I_PD",
     kc: 2,
     ti: 20,
     td: 2,
@@ -48,6 +55,8 @@
     manButton: $("man-button"),
     opInput: $("op-input"),
     spInput: $("sp-input"),
+    pidAlgorithmInput: $("pid-algorithm-input"),
+    pidAlgorithmNote: $("pid-algorithm-note"),
     pbInput: $("pb-input"),
     kcEquivalent: $("kc-equivalent"),
     tiInput: $("ti-input"),
@@ -112,6 +121,14 @@
     elements.kcEquivalent.textContent = `Equivalent Kc: ${formatNumber(kc, 2)}`;
   }
 
+  function updatePidAlgorithmUi() {
+    const algorithm = PID_ALGORITHMS.includes(state.pidAlgorithm)
+      ? state.pidAlgorithm
+      : DEFAULTS.pidAlgorithm;
+    elements.pidAlgorithmInput.value = algorithm;
+    elements.pidAlgorithmNote.textContent = PID_ALGORITHM_DESCRIPTIONS[algorithm];
+  }
+
   function readProportionalBand() {
     const raw = elements.pbInput.value.trim();
     const parsed = raw === "" ? Number.NaN : Number(raw);
@@ -161,6 +178,7 @@
 
   function getPidParams() {
     return {
+      pidAlgorithm: state.pidAlgorithm,
       kc: readProportionalBand(),
       ti: readInput(elements.tiInput, inputFallback(elements.tiInput, DEFAULTS.ti), 0, 600),
       td: readInput(elements.tdInput, inputFallback(elements.tdInput, DEFAULTS.td), 0, 120),
@@ -208,6 +226,7 @@
   function setDefaultInputs() {
     inputDefaults.forEach((value, input) => writeInput(input, value));
     elements.processModelInput.value = DEFAULTS.processModel;
+    elements.pidAlgorithmInput.value = DEFAULTS.pidAlgorithm;
     setProcessParameterInputs(DEFAULTS.processModel);
     writeInput(elements.spInput, DEFAULTS.sp);
     writeInput(elements.opInput, DEFAULTS.op);
@@ -265,54 +284,65 @@
     state.delayBuffer = Array(steps).fill(state.lastProcessInput);
   }
 
-  function derivativeTerm(params) {
-    const pvRate = (state.pv - state.previousPv) / DT;
-    return -params.td * pvRate;
+  function syncPidHistory() {
+    const error = state.sp - state.pv;
+    state.previousError = error;
+    state.previousDeltaError = 0;
+    state.previousPv = state.pv;
+    state.previousDeltaPv = 0;
+  }
+
+  function computePidDelta(params) {
+    const error = state.sp - state.pv;
+    const deltaError = error - state.previousError;
+    const deltaPv = state.pv - state.previousPv;
+    const delta2Error = deltaError - state.previousDeltaError;
+    const delta2Pv = deltaPv - state.previousDeltaPv;
+    const integralPart = params.ti > 0 ? (DT / params.ti) * error : 0;
+
+    let deltaMv;
+    switch (params.pidAlgorithm) {
+      case "PID":
+        deltaMv = params.kc * (deltaError + integralPart + (params.td / DT) * delta2Error);
+        break;
+      case "PI_D":
+        deltaMv = params.kc * (deltaError + integralPart - (params.td / DT) * delta2Pv);
+        break;
+      case "I_PD":
+      default:
+        deltaMv = params.kc * (-deltaPv + integralPart - (params.td / DT) * delta2Pv);
+        break;
+    }
+
+    state.previousError = error;
+    state.previousDeltaError = deltaError;
+    state.previousPv = state.pv;
+    state.previousDeltaPv = deltaPv;
+    return finiteOr(deltaMv, 0);
   }
 
   function computeAutoOutput(params) {
-    const error = state.sp - state.pv;
-    const dTerm = derivativeTerm(params);
-    const integralTerm = params.ti > 0 ? state.integral / params.ti : 0;
-    const rawOutput = params.kc * (error + integralTerm + dTerm) + state.outputBias;
-    const output = clamp(finiteOr(rawOutput, state.op), 0, 100);
-
-    if (params.ti > 0) {
-      const candidateIntegral = state.integral + error * DT;
-      const saturatedHigh = rawOutput > 100 && error < 0;
-      const saturatedLow = rawOutput < 0 && error > 0;
-      if (rawOutput >= 0 && rawOutput <= 100 || saturatedHigh || saturatedLow) {
-        state.integral = candidateIntegral;
-      }
+    if (state.justEnteredAuto) {
+      state.justEnteredAuto = false;
+      return state.op;
     }
 
-    return output;
-  }
-
-  function prepareBumplessAuto(params) {
-    const error = state.sp - state.pv;
-    const dTerm = derivativeTerm(params);
-    state.outputBias = 0;
-
-    if (params.ti > 0 && Math.abs(params.kc) > 1e-9) {
-      state.integral = (state.op / params.kc - error - dTerm) * params.ti;
-    } else {
-      state.outputBias = state.op - params.kc * (error + dTerm);
-      state.integral = 0;
-    }
-    state.previousPv = state.pv;
+    const deltaMv = computePidDelta(params);
+    const candidateMv = state.op + deltaMv;
+    return clamp(finiteOr(candidateMv, state.op), 0, 100);
   }
 
   function setMode(mode) {
     if (mode === state.mode) return;
 
-    const params = getPidParams();
     if (mode === "AUTO") {
-      prepareBumplessAuto(params);
       state.mode = "AUTO";
+      syncPidHistory();
+      state.justEnteredAuto = true;
     } else {
       state.mode = "MAN";
-      state.previousPv = state.pv;
+      syncPidHistory();
+      state.justEnteredAuto = false;
     }
     updateUi();
   }
@@ -369,7 +399,6 @@
 
     state.pv = clamp(finiteOr(state.pv, pvBefore), -1000, 1000);
     state.lastProcessInput = input;
-    state.previousPv = pvBefore;
   }
 
   function recordTrendSample() {
@@ -416,10 +445,13 @@
       op: DEFAULTS.op,
       mode: "AUTO",
       processModel: DEFAULTS.processModel,
+      pidAlgorithm: DEFAULTS.pidAlgorithm,
       processStage1: DEFAULTS.pv,
-      integral: DEFAULTS.op / DEFAULTS.kc * DEFAULTS.ti,
+      previousError: DEFAULTS.sp - DEFAULTS.pv,
+      previousDeltaError: 0,
       previousPv: DEFAULTS.pv,
-      outputBias: 0,
+      previousDeltaPv: 0,
+      justEnteredAuto: false,
       delayBuffer: [],
       lastProcessInput: DEFAULTS.op,
       disturbanceEnabled: false,
@@ -457,8 +489,24 @@
     setProcessParameterInputs(nextModel);
     state.processModel = nextModel;
     state.processStage1 = state.pv;
-    state.previousPv = state.pv;
+    syncPidHistory();
     initializeDelayBuffer(getProcessParams().deadTime);
+    updateUi();
+  }
+
+  function setPidAlgorithm(algorithm) {
+    const nextAlgorithm = PID_ALGORITHMS.includes(algorithm)
+      ? algorithm
+      : DEFAULTS.pidAlgorithm;
+    elements.pidAlgorithmInput.value = nextAlgorithm;
+    if (!state || nextAlgorithm === state.pidAlgorithm) {
+      if (state) updatePidAlgorithmUi();
+      return;
+    }
+
+    state.pidAlgorithm = nextAlgorithm;
+    syncPidHistory();
+    state.justEnteredAuto = state.mode === "AUTO";
     updateUi();
   }
 
@@ -632,6 +680,7 @@
     elements.simulationStatus.textContent = "SIMULATION ONLINE";
     elements.simulationStatus.classList.add("online");
     updateProcessUi();
+    updatePidAlgorithmUi();
     elements.pvValue.textContent = formatNumber(state.pv);
     elements.spValue.textContent = formatNumber(state.sp);
     elements.opValue.textContent = formatNumber(state.op);
@@ -692,6 +741,10 @@
     elements.spInput.addEventListener("input", () => {
       state.sp = readInput(elements.spInput, state.sp, 0, 100);
       updateUi();
+    });
+
+    elements.pidAlgorithmInput.addEventListener("change", () => {
+      setPidAlgorithm(elements.pidAlgorithmInput.value);
     });
 
     elements.pbInput.addEventListener("input", () => {

@@ -326,7 +326,7 @@ h2 {
 .mode-switch {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  margin-bottom: 7px;
+  margin-bottom: 6px;
   border: 1px solid var(--line);
 }
 
@@ -366,6 +366,18 @@ h2 {
   justify-content: space-between;
   gap: 12px;
   min-height: 30px;
+}
+
+.mode-control .field-row {
+  min-height: 30px;
+}
+
+.op-input-row {
+  margin-top: 1px;
+}
+
+.mode-control .helper-text {
+  margin-top: 5px;
 }
 
 .basic-section .field-row {

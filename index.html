@@ -65,6 +65,13 @@
                   MAN
                 </button>
               </div>
+              <label class="field-row" for="sp-input">
+                <span class="field-label">SV</span>
+                <span class="input-with-unit">
+                  <input id="sp-input" class="numeric-input" type="number" min="0" max="100" step="0.5" value="50" />
+                  <span>%</span>
+                </span>
+              </label>
               <label class="field-row op-input-row" for="op-input">
                 <span class="field-label">手动 MV</span>
                 <span class="input-with-unit">
@@ -84,18 +91,21 @@
               <span class="section-note">BASIC</span>
             </div>
 
-            <label class="field-row" for="sp-input">
-              <span class="field-label">SV</span>
-              <span class="input-with-unit">
-                <input id="sp-input" class="numeric-input" type="number" min="0" max="100" step="0.5" value="50" />
-                <span>%</span>
-              </span>
-            </label>
-
             <div class="subsection-heading">
               <span>PID</span>
-              <span>ISA / Ideal</span>
+              <span>YOKOGAWA</span>
             </div>
+            <label class="field-row" for="pid-algorithm-input">
+              <span class="field-label">Algorithm</span>
+              <select id="pid-algorithm-input" class="model-select algorithm-select">
+                <option value="I_PD">I-PD</option>
+                <option value="PI_D">PI-D</option>
+                <option value="PID">PID</option>
+              </select>
+            </label>
+            <p id="pid-algorithm-note" class="helper-text pid-algorithm-note">
+              P: PV · I: Deviation · D: PV
+            </p>
             <div class="parameter-grid">
               <label class="field-row" for="pb-input">
                 <span class="field-label">PB</span>
@@ -120,7 +130,7 @@
               </label>
             </div>
             <p id="kc-equivalent" class="helper-text pid-equivalent">Equivalent Kc: 2.00</p>
-            <p class="helper-text">Ti = 0 关闭积分；Td 作用于 PV。</p>
+            <p class="helper-text">Ti = 0 关闭积分；Td = 0 关闭微分。</p>
 
             <div class="subsection-heading model-subsection-heading">
               <span>PROCESS MODEL</span>

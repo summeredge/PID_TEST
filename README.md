@@ -9,7 +9,7 @@ https://summeredge.github.io/PID_TEST/
 - 固定 `dt = 0.5 s` 的 FOPDT 过程模型：`Gain`、`Tau`、`Dead Time`。
 - 可切换三种过程模型：`FOPDT`、`Integrating / IPDT`、`SOPDT`。
 - 仿真倍速：`1× / 2× / 5× / 10×`，默认 `1×`。
-- ISA / Ideal 形式 PID：`PB (%)`、`Ti`、`Td`；界面同时显示只读等效 `Kc`，MV 限制在 0–100%。
+- Yokogawa 增量式 PID：`PB (%)`、`Ti`、`Td`；界面同时显示只读等效 `Kc`，MV 限制在 0–100%。
 - MAN 模式可直接编辑 MV；AUTO ↔ MAN 使用基础 bumpless transfer。
 - SV Step（50 → 70）、可调幅值的 Load Disturbance、Reset。
 - PV / SV / MV 单一原生 Canvas 实时滚动趋势图，不依赖第三方库。
@@ -17,6 +17,18 @@ https://summeredge.github.io/PID_TEST/
 界面采用 DCS 常用术语：`SV = Set Value`、`PV = Process Value`、`MV = Manipulated Value`。
 
 本页面 PID 参数采用 Yokogawa/CENTUM 常见比例带表达：`PB (%) = 100 / Kc`。因此 PB 越小表示比例作用越强。为保持现有 `Kc` 最大值 50，PB 最小值设为 2%。
+
+## Yokogawa PID Algorithms
+
+控制器采用固定 `dt = 0.5 s` 的增量式（velocity form）计算，算法选择及各项输入如下：
+
+| Algorithm | P | I | D |
+| --- | --- | --- | --- |
+| PID | Deviation | Deviation | Deviation |
+| I-PD | PV | Deviation | PV |
+| PI-D | Deviation | Deviation | PV |
+
+默认算法为 `I-PD`。本仿真采用 `e = SV − PV`，以匹配当前正增益过程模型；这只是控制方向的符号约定，不改变 Yokogawa PID / I-PD / PI-D 的输入变量定义。
 
 ## 本地运行
 
@@ -54,6 +66,7 @@ dPV/dt = [Gain × (OP + Load) − PV] / Tau
 
 ```text
 SV = 50       PV = 50       MV = 50       MODE = AUTO
+Algorithm = I-PD
 PB = 50%      Kc = 2        Ti = 20 s     Td = 2 s
 Gain = 1      Tau = 30 s    Dead Time = 5 s
 ```
