@@ -11,7 +11,7 @@ https://summeredge.github.io/PID_TEST/
 - 仿真倍速：`1× / 2× / 5× / 10×`，默认 `1×`。
 - Yokogawa 增量式 PID：`PB (%)`、`Ti`、`Td`；界面同时显示只读等效 `Kc`，MV 限制在 0–100%。
 - MAN 模式可直接编辑 MV；AUTO ↔ MAN 使用基础 bumpless transfer。
-- SV Step（50 → 70）、可调幅值的 Load Disturbance、Reset。
+- 直接修改 SV 可进行设定值阶跃实验；可调幅值的 Load Disturbance、Reset。
 - PV / SV / MV 单一原生 Canvas 实时滚动趋势图，不依赖第三方库。
 
 界面采用 DCS 常用术语：`SV = Set Value`、`PV = Process Value`、`MV = Manipulated Value`。
@@ -73,7 +73,7 @@ Gain = 1      Tau = 30 s    Dead Time = 5 s
 
 ## 课堂验证建议
 
-1. 点击 `SV Step`，观察 PV 的跟踪、超调和 MV 动作。
+1. 直接修改 SV，观察 PV 的跟踪、超调和 MV 动作。
 2. 减小 `PB`（等效增大 `Kc`），比较响应速度和振荡趋势；改变 `Ti`、`Td` 观察积分与微分影响。
 3. 增大 `Tau` 或 `Dead Time`，观察过程变慢和控制难度增加。
 4. AUTO 运行时切到 MAN，修改 MV，再切回 AUTO，观察输出是否平滑接管。

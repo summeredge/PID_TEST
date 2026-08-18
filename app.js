@@ -73,7 +73,6 @@
     tau2Field: $("tau-2-field"),
     tauLabel: $("tau-label"),
     disturbanceInput: $("disturbance-input"),
-    spStepButton: $("sp-step-button"),
     disturbanceButton: $("disturbance-button"),
     resetButton: $("reset-button"),
     simClock: $("sim-clock"),
@@ -510,12 +509,6 @@
     updateUi();
   }
 
-  function setSetpoint(value) {
-    state.sp = clamp(finiteOr(value, state.sp), 0, 100);
-    writeInput(elements.spInput, state.sp);
-    updateUi();
-  }
-
   function setSimulationSpeed(value) {
     const nextSpeed = Number(value);
     if (!SPEED_OPTIONS.includes(nextSpeed)) return;
@@ -703,8 +696,6 @@
       writeInput(elements.opInput, state.op);
     }
 
-    const nextStep = Math.abs(state.sp - 70) < 0.01 ? "50" : "70";
-    elements.spStepButton.textContent = `SV Step (→ ${nextStep})`;
     elements.disturbanceButton.textContent = state.disturbanceEnabled
       ? "Load Disturbance: ON"
       : "Load Disturbance: OFF";
@@ -775,10 +766,6 @@
 
     elements.processModelInput.addEventListener("change", () => {
       setProcessModel(elements.processModelInput.value);
-    });
-
-    elements.spStepButton.addEventListener("click", () => {
-      setSetpoint(Math.abs(state.sp - 70) < 0.01 ? 50 : 70);
     });
 
     elements.disturbanceButton.addEventListener("click", () => {

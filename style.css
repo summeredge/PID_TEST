@@ -495,19 +495,6 @@ h2 {
   outline: none;
 }
 
-.primary-action {
-  border-color: var(--text);
-  background: var(--text);
-  color: #ffffff;
-}
-
-.primary-action:hover,
-.primary-action:focus-visible {
-  border-color: var(--focus);
-  background: var(--panel-deep);
-  color: var(--focus);
-}
-
 .disturbance-button[aria-pressed="true"] {
   border-color: var(--orange);
   background: rgb(239 143 77 / 14%);
@@ -534,7 +521,7 @@ h2 {
 }
 
 .experiments-section .reset-button {
-  margin-top: 10px;
+  margin-top: 7px;
 }
 
 .advanced-settings {
