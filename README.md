@@ -1,7 +1,7 @@
 # PID Loop Trainer
 
 轻量、纯前端的 DCS 风格 PID 过程控制教学仿真。页面没有后端、数据库或构建步骤，适合直接作为 GitHub Pages 静态站点发布。
-https://github.com/summeredge/PID_TEST/settings/pages
+https://summeredge.github.io/PID_TEST/
 
 ## 功能
 
