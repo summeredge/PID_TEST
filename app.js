@@ -9,8 +9,12 @@
   const PROCESS_MODELS = Object.freeze(["FOPDT", "INTEGRATING", "SOPDT"]);
   const PID_ALGORITHMS = Object.freeze(["I_PD", "PI_D", "PID"]);
   const DISTURBANCE_TYPES = Object.freeze(["STEP", "SQUARE", "SINE"]);
-  const { computeVelocityPidDelta, getDcsNormalizedSignals, isValidRange } =
-    window.PIDLoopCore;
+  const {
+    computeVelocityPidDelta,
+    engineeringToPercent,
+    getDcsNormalizedSignals,
+    isValidRange,
+  } = window.PIDLoopCore;
   const DISTURBANCE_LABELS = Object.freeze({
     STEP: "Step",
     SQUARE: "Square",
@@ -67,6 +71,7 @@
     disturbance: -15,
     disturbanceType: "STEP",
     disturbancePeriod: 60,
+    pvNoise: 1,
   });
   const PB_MIN = 2;
   const PB_DEFAULT = 100 / DEFAULTS.kc;
@@ -118,6 +123,8 @@
     disturbancePeriodInput: $("disturbance-period-input"),
     disturbancePeriodField: $("disturbance-period-field"),
     disturbanceButton: $("disturbance-button"),
+    pvNoiseInput: $("pv-noise-input"),
+    pvNoiseButton: $("pv-noise-button"),
     pauseButton: $("pause-button"),
     resetButton: $("reset-button"),
     simClock: $("sim-clock"),
@@ -143,6 +150,7 @@
     [elements.deadTimeInput, DEFAULTS.deadTime],
     [elements.disturbanceInput, DEFAULTS.disturbance],
     [elements.disturbancePeriodInput, DEFAULTS.disturbancePeriod],
+    [elements.pvNoiseInput, DEFAULTS.pvNoise],
   ]);
 
   const deferredNumericInputs = [
@@ -159,6 +167,7 @@
     elements.pvUrvInput,
     elements.disturbanceInput,
     elements.disturbancePeriodInput,
+    elements.pvNoiseInput,
   ];
 
   let state;
@@ -289,12 +298,17 @@
   }
 
   function getDcsSignals() {
-    return getDcsNormalizedSignals(
-      state.pv,
-      state.sp,
-      state.pvRange.lrv,
-      state.pvRange.urv,
-    );
+    const range = state.pvRange;
+    const span = range.urv - range.lrv;
+    const noisePct = finiteOr(state.pvNoisePct, 0);
+    const measuredPv = state.pv + (noisePct / 100) * span;
+    const signals = getDcsNormalizedSignals(measuredPv, state.sp, range.lrv, range.urv);
+    return {
+      ...signals,
+      rawPvPct: engineeringToPercent(state.pv, range.lrv, range.urv),
+      measuredPvPct: signals.rawPvPct,
+      measurementNoisePct: noisePct,
+    };
   }
 
   function updatePvRangeUi() {
@@ -353,6 +367,24 @@
     return readInput(elements.disturbancePeriodInput, DEFAULTS.disturbancePeriod, 5, 600);
   }
 
+  function getPvNoiseSigma() {
+    return readInput(elements.pvNoiseInput, DEFAULTS.pvNoise, 0, 20);
+  }
+
+  function gaussianRandom() {
+    let u = 0;
+    let v = 0;
+    while (u === 0) u = Math.random();
+    while (v === 0) v = Math.random();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  }
+
+  function samplePvNoise() {
+    state.pvNoisePct = state.pvNoiseEnabled
+      ? finiteOr(gaussianRandom() * getPvNoiseSigma(), 0)
+      : 0;
+  }
+
   function getDisturbanceValue() {
     if (!state.disturbanceEnabled) return 0;
 
@@ -399,6 +431,7 @@
       "dead-time-input": [0, 120],
       "disturbance-input": [-100, 100],
       "disturbance-period-input": [5, 600],
+      "pv-noise-input": [0, 20],
     }[input.id] || null;
   }
 
@@ -688,6 +721,7 @@
 
     stepProcess(processParams);
     state.simTime += DT;
+    samplePvNoise();
 
     if (state.simTime - state.lastTrendTime >= TREND_INTERVAL - 1e-9) {
       recordTrendSample();
@@ -733,6 +767,8 @@
       disturbanceEnabled: false,
       disturbanceType: DEFAULTS.disturbanceType,
       disturbanceStartTime: 0,
+      pvNoiseEnabled: false,
+      pvNoisePct: 0,
       simulationPaused,
       history: [],
       chartPercentMin: 0,
@@ -1133,6 +1169,8 @@
     elements.disturbancePeriodField.classList.toggle("is-hidden", state.disturbanceType === "STEP");
     elements.disturbanceButton.textContent = `${disturbanceLabel} Load: ${state.disturbanceEnabled ? "ON" : "OFF"}`;
     elements.disturbanceButton.setAttribute("aria-pressed", String(state.disturbanceEnabled));
+    elements.pvNoiseButton.textContent = `PV Noise: ${state.pvNoiseEnabled ? "ON" : "OFF"}`;
+    elements.pvNoiseButton.setAttribute("aria-pressed", String(state.pvNoiseEnabled));
     elements.pauseButton.textContent = isPaused ? "Resume" : "Pause";
     elements.pauseButton.setAttribute("aria-pressed", String(isPaused));
   }
@@ -1215,6 +1253,12 @@
     elements.disturbanceButton.addEventListener("click", () => {
       state.disturbanceEnabled = !state.disturbanceEnabled;
       if (state.disturbanceEnabled) state.disturbanceStartTime = state.simTime;
+      updateUi();
+    });
+
+    elements.pvNoiseButton.addEventListener("click", () => {
+      state.pvNoiseEnabled = !state.pvNoiseEnabled;
+      if (!state.pvNoiseEnabled) state.pvNoisePct = 0;
       updateUi();
     });
 
