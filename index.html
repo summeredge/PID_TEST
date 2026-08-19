@@ -326,10 +326,31 @@
                 <h2>PV / SV / MV Trend</h2>
                 <p id="trend-note" class="trend-note">PV/SV: %Span · MV: %</p>
               </div>
-              <div class="legend" aria-label="PV、SV、MV 图例">
-                <span class="legend-item"><i class="legend-line pv-line"></i>PV</span>
-                <span class="legend-item"><i class="legend-line sp-line"></i>SV</span>
-                <span class="legend-item"><i class="legend-line op-line"></i>MV</span>
+              <div class="legend primary-legend" aria-label="PV、SV、MV 图例">
+                <button
+                  class="legend-item legend-toggle"
+                  type="button"
+                  data-trend-series="pv"
+                  aria-pressed="true"
+                >
+                  <i class="legend-line pv-line"></i>PV
+                </button>
+                <button
+                  class="legend-item legend-toggle"
+                  type="button"
+                  data-trend-series="sp"
+                  aria-pressed="true"
+                >
+                  <i class="legend-line sp-line"></i>SV
+                </button>
+                <button
+                  class="legend-item legend-toggle"
+                  type="button"
+                  data-trend-series="op"
+                  aria-pressed="true"
+                >
+                  <i class="legend-line op-line"></i>MV
+                </button>
               </div>
             </div>
             <div class="canvas-wrap">
