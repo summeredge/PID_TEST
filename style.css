@@ -921,6 +921,17 @@ summary:focus-visible {
   .control-panel-main .basic-section {
     padding-bottom: 5px;
   }
+
+  .trend-area {
+    display: grid;
+    grid-template-rows: minmax(0, 2fr) minmax(0, 1fr);
+    overflow: hidden;
+  }
+
+  .trend-panel {
+    min-height: 0;
+    flex: none;
+  }
 }
 
 @media (max-width: 900px) {
