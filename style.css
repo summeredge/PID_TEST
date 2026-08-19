@@ -186,6 +186,8 @@ button {
 .left-controls {
   grid-column: 1;
   grid-row: 1;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .control-panel-main {
@@ -193,11 +195,9 @@ button {
 }
 
 .control-panel-secondary-scroll {
-  min-height: 0;
   min-width: 0;
-  flex: 1 1 auto;
-  overflow-x: hidden;
-  overflow-y: auto;
+  flex: 0 0 auto;
+  overflow: visible;
 }
 
 .panel-section {
