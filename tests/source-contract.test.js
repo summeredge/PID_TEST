@@ -8,6 +8,7 @@ const read = (name) => fs.readFileSync(path.join(root, name), "utf8");
 const html = read("index.html");
 const css = read("style.css");
 const app = read("app.js");
+const core = read("pid-core.js");
 const readFunction = (source, name, nextName) => {
   const start = source.indexOf(`function ${name}`);
   const end = source.indexOf(`function ${nextName}`, start);
@@ -76,4 +77,45 @@ test("disturbance contract uses one process-input entry and simulation time wave
   assert.ok(Math.abs(value("SINE", -15, 60, 0)) < 1e-12);
   assert.ok(Math.abs(value("SINE", -15, 60, 15) + 15) < 1e-12);
   assert.ok(Math.abs(value("SINE", -15, 60, 30)) < 1e-12);
+});
+
+test("DCS PV contract separates raw process PV from the DCS signal", () => {
+  assert.match(core, /const DCS_PV_MIN_PCT = -4\.5/);
+  assert.match(core, /const DCS_PV_MAX_PCT = 104\.5/);
+  assert.match(core, /function clampDcsPvPercent\(value\)/);
+  assert.match(core, /function getDcsNormalizedSignals\(pv, sp, lrv, urv\)/);
+  assert.match(core, /dcsPvPct = clampDcsPvPercent\(rawSignals\.rawPvPct\)/);
+  assert.match(core, /dcsPvEngineering: percentToEngineering\(dcsPvPct, lrv, urv\)/);
+  assert.match(app, /getDcsNormalizedSignals/);
+  assert.doesNotMatch(app, /normalizePidSignals/);
+  assert.doesNotMatch(app, /ENGINEERING_VALUE_MIN|ENGINEERING_VALUE_MAX/);
+
+  const processStep = readFunction(app, "stepProcess", "recordTrendSample");
+  assert.doesNotMatch(processStep, /state\.pvRange/);
+  assert.match(processStep, /state\.pv = clamp\(finiteOr\(state\.pv, pvBefore\), -1000, 1000\)/);
+
+  const trend = readFunction(app, "recordTrendSample", "stepSimulation");
+  assert.match(trend, /const signals = getDcsSignals\(\)/);
+  assert.match(trend, /pv: signals\.pvPct/);
+
+  const pid = readFunction(app, "computePidDelta", "computeAutoOutput");
+  assert.match(pid, /const signals = getDcsSignals\(\)/);
+  assert.match(pid, /pvPct: signals\.pvPct/);
+});
+
+test("SV follows the live PV range without changing process PV", () => {
+  const rangeSync = readFunction(app, "syncPvRange", "syncSpInputRange");
+  assert.match(rangeSync, /state\.sp = clamp\(state\.sp, candidate\.lrv, candidate\.urv\)/);
+  assert.match(rangeSync, /writeInput\(elements\.spInput, state\.sp\)/);
+  assert.match(rangeSync, /syncPidHistory\(\)/);
+  assert.match(rangeSync, /state\.justEnteredAuto = state\.mode === "AUTO"/);
+
+  const inputRange = readFunction(app, "syncSpInputRange", "getDcsSignals");
+  assert.match(inputRange, /elements\.spInput\.min = String\(state\.pvRange\.lrv\)/);
+  assert.match(inputRange, /elements\.spInput\.max = String\(state\.pvRange\.urv\)/);
+
+  const ui = readFunction(app, "updateUi", "animationLoop");
+  assert.match(ui, /elements\.pvValue\.textContent = formatNumber\(signals\.dcsPvEngineering\)/);
+  assert.match(ui, /elements\.spInput\.disabled = false/);
+  assert.doesNotMatch(ui, /elements\.spInput\.disabled = !isAuto/);
 });

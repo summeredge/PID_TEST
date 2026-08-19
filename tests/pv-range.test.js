@@ -2,8 +2,12 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const {
+  DCS_PV_MAX_PCT,
+  DCS_PV_MIN_PCT,
+  clampDcsPvPercent,
   computeVelocityPidDelta,
   engineeringToPercent,
+  getDcsNormalizedSignals,
   isValidRange,
   normalizePidSignals,
   percentToEngineering,
@@ -31,6 +35,57 @@ test("engineering and %Span conversion uses the configured range", () => {
   assert.equal(engineeringToPercent(50, 0, 200), 25);
   assert.equal(engineeringToPercent(0, -50, 50), 50);
   assert.equal(percentToEngineering(25, 0, 200), 50);
+});
+
+test("DCS PV clamps only the normalized measurement and returns engineering value", () => {
+  assert.equal(DCS_PV_MIN_PCT, -4.5);
+  assert.equal(DCS_PV_MAX_PCT, 104.5);
+  assert.equal(clampDcsPvPercent(-10), -4.5);
+  assert.equal(clampDcsPvPercent(104.5), 104.5);
+  assert.equal(clampDcsPvPercent(110), 104.5);
+
+  const upper = getDcsNormalizedSignals(220, 200, 0, 200);
+  assert.equal(upper.rawPvPct, 110);
+  assert.equal(upper.dcsPvPct, 104.5);
+  assert.equal(upper.pvPct, 104.5);
+  assert.equal(upper.dcsPvEngineering, 209);
+
+  const lower = getDcsNormalizedSignals(-20, 0, 0, 200);
+  assert.equal(lower.rawPvPct, -10);
+  assert.equal(lower.dcsPvPct, -4.5);
+  assert.equal(lower.dcsPvEngineering, -9);
+});
+
+test("DCS PV and SV signals use the DCS PV clamp and the PV range", () => {
+  const signals = getDcsNormalizedSignals(120, 250, 0, 100);
+
+  assert.equal(signals.rawPvPct, 120);
+  assert.equal(signals.dcsPvPct, 104.5);
+  assert.equal(signals.spPct, 100);
+  assert.equal(signals.errorPct, -4.5);
+});
+
+test("all PID algorithms receive the same DCS PV after raw PV over-range", () => {
+  const response = (pidAlgorithm, rawPv) => {
+    const signals = getDcsNormalizedSignals(rawPv, 50, 0, 100);
+    return computeVelocityPidDelta({
+      dt: 0.5,
+      pidAlgorithm,
+      kc: 2,
+      ti: 20,
+      td: 2,
+      errorPct: signals.errorPct,
+      previousErrorPct: 0,
+      previousDeltaErrorPct: 0,
+      pvPct: signals.dcsPvPct,
+      previousPvPct: 50,
+      previousDeltaPvPct: 0,
+    }).deltaMv;
+  };
+
+  for (const pidAlgorithm of ["PID", "PI_D", "I_PD"]) {
+    assert.equal(response(pidAlgorithm, 104.5), response(pidAlgorithm, 120));
+  }
 });
 
 test("error %Span reflects the same engineering deviation at each range", () => {

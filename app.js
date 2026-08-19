@@ -9,7 +9,7 @@
   const PROCESS_MODELS = Object.freeze(["FOPDT", "INTEGRATING", "SOPDT"]);
   const PID_ALGORITHMS = Object.freeze(["I_PD", "PI_D", "PID"]);
   const DISTURBANCE_TYPES = Object.freeze(["STEP", "SQUARE", "SINE"]);
-  const { computeVelocityPidDelta, isValidRange, normalizePidSignals } =
+  const { computeVelocityPidDelta, getDcsNormalizedSignals, isValidRange } =
     window.PIDLoopCore;
   const DISTURBANCE_LABELS = Object.freeze({
     STEP: "Step",
@@ -55,8 +55,6 @@
   });
   const PB_MIN = 2;
   const PB_DEFAULT = 100 / DEFAULTS.kc;
-  const ENGINEERING_VALUE_MIN = -100000;
-  const ENGINEERING_VALUE_MAX = 100000;
 
   const $ = (id) => document.getElementById(id);
 
@@ -268,18 +266,28 @@
     const engineeringRangeChanged =
       !previous || candidate.lrv !== previous.lrv || candidate.urv !== previous.urv;
     const unitChanged = !previous || candidate.unit !== previous.unit;
+    syncSpInputRange();
     if (!engineeringRangeChanged && !unitChanged) return previous;
 
     state.pvRange = { lrv: candidate.lrv, urv: candidate.urv, unit: candidate.unit };
+    syncSpInputRange();
     if (engineeringRangeChanged) {
+      state.sp = clamp(state.sp, candidate.lrv, candidate.urv);
+      writeInput(elements.spInput, state.sp);
       syncPidHistory();
       state.justEnteredAuto = state.mode === "AUTO";
     }
     return state.pvRange;
   }
 
-  function getNormalizedSignals() {
-    return normalizePidSignals(
+  function syncSpInputRange() {
+    if (!state) return;
+    elements.spInput.min = String(state.pvRange.lrv);
+    elements.spInput.max = String(state.pvRange.urv);
+  }
+
+  function getDcsSignals() {
+    return getDcsNormalizedSignals(
       state.pv,
       state.sp,
       state.pvRange.lrv,
@@ -289,7 +297,7 @@
 
   function updatePvRangeUi() {
     const range = state.pvRange;
-    const signals = getNormalizedSignals();
+    const signals = getDcsSignals();
     const unit = range.unit || "EU";
     const rangeInvalid =
       elements.pvLrvInput.getAttribute("aria-invalid") === "true" ||
@@ -393,19 +401,20 @@
 
   function normalizeInput(input) {
     const fallback = inputFallback(input, 0);
-    const limits = {
-      "sp-input": [ENGINEERING_VALUE_MIN, ENGINEERING_VALUE_MAX],
-      "op-input": [0, 100],
-      "pb-input": [PB_MIN, Number.POSITIVE_INFINITY],
-      "ti-input": [0, 600],
-      "td-input": [0, 120],
-      "gain-input": [0.01, 10],
-      "tau-input": [0.1, 600],
-      "tau-2-input": [0.1, 600],
-      "dead-time-input": [0, 120],
-      "disturbance-input": [-100, 100],
-      "disturbance-period-input": [5, 600],
-    }[input.id];
+    const limits = input.id === "sp-input"
+      ? [state.pvRange.lrv, state.pvRange.urv]
+      : {
+          "op-input": [0, 100],
+          "pb-input": [PB_MIN, Number.POSITIVE_INFINITY],
+          "ti-input": [0, 600],
+          "td-input": [0, 120],
+          "gain-input": [0.01, 10],
+          "tau-input": [0.1, 600],
+          "tau-2-input": [0.1, 600],
+          "dead-time-input": [0, 120],
+          "disturbance-input": [-100, 100],
+          "disturbance-period-input": [5, 600],
+        }[input.id];
     if (!limits) return;
 
     const raw = input.value.trim();
@@ -443,7 +452,7 @@
   }
 
   function syncPidHistory() {
-    const signals = getNormalizedSignals();
+    const signals = getDcsSignals();
     state.previousErrorPct = signals.errorPct;
     state.previousDeltaErrorPct = 0;
     state.previousPvPct = signals.pvPct;
@@ -451,7 +460,7 @@
   }
 
   function computePidDelta(params) {
-    const signals = getNormalizedSignals();
+    const signals = getDcsSignals();
     const result = computeVelocityPidDelta({
       dt: DT,
       pidAlgorithm: params.pidAlgorithm,
@@ -554,7 +563,7 @@
   }
 
   function recordTrendSample() {
-    const signals = getNormalizedSignals();
+    const signals = getDcsSignals();
     state.history.push({
       time: state.simTime,
       sp: signals.spPct,
@@ -568,13 +577,13 @@
   }
 
   function stepSimulation() {
+    syncPvRange();
     state.sp = readInput(
       elements.spInput,
       state.sp,
-      ENGINEERING_VALUE_MIN,
-      ENGINEERING_VALUE_MAX,
+      state.pvRange.lrv,
+      state.pvRange.urv,
     );
-    syncPvRange();
     const pidParams = getPidParams();
     const processParams = getProcessParams();
 
@@ -873,6 +882,7 @@
     if (!state) return;
 
     syncPvRange();
+    const signals = getDcsSignals();
     const isPaused = state.simulationPaused;
     elements.simulationStatus.textContent = isPaused
       ? "SIMULATION PAUSED"
@@ -882,7 +892,7 @@
     updateProcessUi();
     updatePidAlgorithmUi();
     updatePvRangeUi();
-    elements.pvValue.textContent = formatNumber(state.pv);
+    elements.pvValue.textContent = formatNumber(signals.dcsPvEngineering);
     elements.spValue.textContent = formatNumber(state.sp);
     elements.opValue.textContent = formatNumber(state.op);
     elements.simClock.textContent = `t = ${formatNumber(state.simTime)} s`;
@@ -894,7 +904,7 @@
     elements.modeDisplay.classList.toggle("man", !isAuto);
     elements.autoButton.classList.toggle("active", isAuto);
     elements.manButton.classList.toggle("active", !isAuto);
-    elements.spInput.disabled = !isAuto;
+    elements.spInput.disabled = false;
     elements.opInput.disabled = isAuto;
     elements.modeHelp.textContent = isAuto
       ? "AUTO：PID 根据归一化后的 PV / SV %Span 计算 MV。"
@@ -947,8 +957,8 @@
       state.sp = readInput(
         elements.spInput,
         state.sp,
-        ENGINEERING_VALUE_MIN,
-        ENGINEERING_VALUE_MAX,
+        state.pvRange.lrv,
+        state.pvRange.urv,
       );
       updateUi();
     });

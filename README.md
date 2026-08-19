@@ -10,7 +10,7 @@ https://summeredge.github.io/PID_TEST/
 - 可切换三种过程模型：`FOPDT`、`Integrating / IPDT`、`SOPDT`。
 - 仿真倍速：`1× / 2× / 5× / 10×`，默认 `1×`。
 - Yokogawa 增量式 PID：`PB (%)`、`Ti`、`Td`；界面同时显示只读等效 `Kc`，MV 限制在 0–100%。
-- PV RANGE：以工程单位输入/显示 `LRV`、`URV`、`Unit`，并实时显示 PV、SV、Error 的 `%Span`。
+- PV RANGE：以工程单位输入/显示 `LRV`、`URV`、`Unit`，并实时显示 DCS PV、SV、Error 的 `%Span`；SV 量程跟随 PV Range。
 - MAN 模式可直接编辑 MV；AUTO ↔ MAN 使用基础 bumpless transfer。
 - 直接修改 SV 可进行设定值阶跃实验；支持 Step / Square / Sine 三种负荷扰动、Pause / Resume 和 Reset。
 - PV / SV / MV 单一原生 Canvas 实时滚动趋势图，不依赖第三方库。
@@ -29,23 +29,27 @@ https://summeredge.github.io/PID_TEST/
 | I-PD | PV | Deviation | PV |
 | PI-D | Deviation | Deviation | PV |
 
-默认算法为 `I-PD`。本仿真采用 `e = SV − PV`，以匹配当前正增益过程模型；这只是控制方向的符号约定，不改变 Yokogawa PID / I-PD / PI-D 的输入变量定义。
+默认算法为 `I-PD`。本仿真采用 `e = SV − DCS PV`，以匹配当前正增益过程模型；这只是控制方向的符号约定，不改变 Yokogawa PID / I-PD / PI-D 的输入变量定义。
 
 ### PV Range / %Span
 
-PV 和 SV 始终以现场工程单位输入和显示。控制器计算前使用当前合法量程转换为 `%Span`：
+过程模型内部的 `state.pv` 是 Process Raw PV，可以继续超出 LRV / URV；DCS 画面、趋势和 PID 使用独立的 DCS PV 信号。控制器计算前使用当前合法量程转换为 `%Span`：
 
 ```text
-PV% = 100 × (PV − LRV) / (URV − LRV)
+Raw PV% = 100 × (Raw PV − LRV) / (URV − LRV)
+DCS PV% = clamp(Raw PV%, -4.5, 104.5)
+DCS PV EU = LRV + DCS PV% / 100 × (URV − LRV)
 SV% = 100 × (SV − LRV) / (URV − LRV)
-Error% = 100 × (SV − PV) / (URV − LRV)
+Error% = SV% − DCS PV%
 ```
 
-其中 `Span = URV − LRV`，必须满足 `URV > LRV`。非法量程会标记输入并继续使用最近一次合法量程，不会交换 LRV / URV，也不会让 PID 进入除零或 `NaN` 计算。在线修改量程不会重置 PV、SV、MV、过程或趋势；AUTO 下第一个周期保持当前 MV，并同步 PID 的 `%Span` 历史，避免人为 P/D 尖峰。
+其中 `Span = URV − LRV`，必须满足 `URV > LRV`。非法量程会标记输入并继续使用最近一次合法量程，不会交换 LRV / URV，也不会让 PID 进入除零或 `NaN` 计算。SV 始终限制在 `LRV…URV`（`0…100 %Span`），并同步输入框的 `min` / `max`。在线修改量程不会截断 Raw PV、重置 PV、SV、MV、过程或趋势；AUTO 下第一个周期保持当前 MV，并同步 PID 的 DCS `%Span` 历史，避免人为 P/D 尖峰。
+
+例如，量程为 `0…200 °C` 时，Raw PV 为 `220 °C` 对应 `Raw PV% = 110%`，但 DCS PV 为 `104.5%`、`209 °C`。这表示 measurement/input over-range saturation，不表示物理过程停止变化；Raw PV 仍由过程模型继续演化。下超量程同理，DCS PV 最低为 `-4.5%`。
 
 PB 的定义保持不变：`Kc = 100 / PB`。因此在相同 PB 下，同一个工程量偏差的量程越大，控制器看到的 `%Span` 偏差越小，比例作用越弱。反过来，如果两个工况的 `%Span` 偏差相同，比例响应应基本相同。
 
-趋势图内部使用 `PV / SV = %Span` 和 `MV = %`，三条曲线共用 0–100 附近的百分数轴；Loop Summary 仍显示 PV / SV 工程值，MV 仍显示百分比。
+趋势图内部使用 `DCS PV / SV = %Span` 和 `MV = %`，三条曲线共用至少覆盖 `-4.5…104.5` 的百分数轴；Loop Summary 显示 DCS PV / SV 工程值，MV 仍显示百分比。
 
 I-PD 的 P、D 项作用于 PV，I 项作用于 Deviation。要观察量程对 I-PD P/D 敏感度的影响，应使用 Step / Square / Sine Load Disturbance 制造 PV 变化，而不是只做 SV 阶跃。PI-D / PID 的 P 项作用于 Deviation，可以通过 SV 变化观察。
 
