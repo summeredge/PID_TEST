@@ -139,6 +139,22 @@
     [elements.disturbancePeriodInput, DEFAULTS.disturbancePeriod],
   ]);
 
+  const deferredNumericInputs = [
+    elements.spInput,
+    elements.opInput,
+    elements.pbInput,
+    elements.tiInput,
+    elements.tdInput,
+    elements.gainInput,
+    elements.tauInput,
+    elements.tau2Input,
+    elements.deadTimeInput,
+    elements.pvLrvInput,
+    elements.pvUrvInput,
+    elements.disturbanceInput,
+    elements.disturbancePeriodInput,
+  ];
+
   let state;
   let animationFrame = 0;
   let lastFrameTime = 0;
@@ -181,49 +197,22 @@
   }
 
   function readProportionalBand() {
-    const raw = elements.pbInput.value.trim();
-    const parsed = raw === "" ? Number.NaN : Number(raw);
-    const fallback = inputFallback(elements.pbInput, PB_DEFAULT);
-    const safeFallback = Number.isFinite(fallback) && fallback >= PB_MIN ? fallback : PB_DEFAULT;
-
-    if (!Number.isFinite(parsed) || parsed < PB_MIN) {
-      elements.pbInput.classList.add("invalid");
-      elements.pbInput.setAttribute("aria-invalid", "true");
-      const kc = 100 / safeFallback;
-      updateKcEquivalent(kc);
-      return kc;
-    }
-
-    elements.pbInput.classList.remove("invalid");
-    elements.pbInput.setAttribute("aria-invalid", "false");
-    elements.pbInput.dataset.lastValid = String(parsed);
-    const kc = 100 / parsed;
+    const pb = inputFallback(elements.pbInput, PB_DEFAULT);
+    const safePb = Number.isFinite(pb) && pb >= PB_MIN ? pb : PB_DEFAULT;
+    const kc = 100 / safePb;
     updateKcEquivalent(kc);
     return kc;
   }
 
   function readInput(input, fallback, min, max) {
-    const raw = input.value.trim();
-    const parsed = raw === "" ? Number.NaN : Number(raw);
-    if (!Number.isFinite(parsed)) {
-      input.classList.add("invalid");
-      input.setAttribute("aria-invalid", "true");
-      return fallback;
-    }
-
-    const value = clamp(parsed, min, max);
-    const isOutOfRange = parsed < min || parsed > max;
-    input.classList.toggle("invalid", isOutOfRange);
-    input.setAttribute("aria-invalid", String(isOutOfRange));
-    input.dataset.lastValid = String(value);
-    return value;
+    return clamp(inputFallback(input, fallback), min, max);
   }
 
   function writeInput(input, value) {
     const safeValue = finiteOr(value, 0);
     input.value = String(Math.round(safeValue * 1000) / 1000);
     input.dataset.lastValid = String(safeValue);
-    input.classList.remove("invalid");
+    input.classList.remove("invalid", "pending");
     input.setAttribute("aria-invalid", "false");
   }
 
@@ -239,16 +228,14 @@
     return {
       pidAlgorithm: state.pidAlgorithm,
       kc: readProportionalBand(),
-      ti: readInput(elements.tiInput, inputFallback(elements.tiInput, DEFAULTS.ti), 0, 600),
-      td: readInput(elements.tdInput, inputFallback(elements.tdInput, DEFAULTS.td), 0, 120),
+      ti: readInput(elements.tiInput, DEFAULTS.ti, 0, 600),
+      td: readInput(elements.tdInput, DEFAULTS.td, 0, 120),
     };
   }
 
   function readPvRangeInputs() {
-    const lrvRaw = elements.pvLrvInput.value.trim();
-    const urvRaw = elements.pvUrvInput.value.trim();
-    const lrv = lrvRaw === "" ? Number.NaN : Number(lrvRaw);
-    const urv = urvRaw === "" ? Number.NaN : Number(urvRaw);
+    const lrv = inputFallback(elements.pvLrvInput, state?.pvRange?.lrv ?? DEFAULTS.pvLrv);
+    const urv = inputFallback(elements.pvUrvInput, state?.pvRange?.urv ?? DEFAULTS.pvUrv);
     const valid = isValidRange(lrv, urv);
     const unitRaw = elements.pvUnitInput.value.trim();
     const unitFallback = state?.pvRange?.unit || DEFAULTS.pvUnit;
@@ -258,10 +245,6 @@
       input.classList.toggle("invalid", !valid);
       input.setAttribute("aria-invalid", String(!valid));
     });
-    if (valid) {
-      elements.pvLrvInput.dataset.lastValid = String(lrv);
-      elements.pvUrvInput.dataset.lastValid = String(urv);
-    }
     if (unitRaw) {
       elements.pvUnitInput.dataset.lastValid = unitRaw;
       elements.pvUnitInput.classList.remove("invalid");
@@ -349,34 +332,19 @@
   function getProcessParams() {
     return {
       model: selectedProcessModel(),
-      gain: readInput(elements.gainInput, inputFallback(elements.gainInput, DEFAULTS.gain), 0.01, 10),
-      tau: readInput(elements.tauInput, inputFallback(elements.tauInput, DEFAULTS.tau), 0.1, 600),
-      tau2: readInput(elements.tau2Input, inputFallback(elements.tau2Input, DEFAULTS.tau2), 0.1, 600),
-      deadTime: readInput(
-        elements.deadTimeInput,
-        inputFallback(elements.deadTimeInput, DEFAULTS.deadTime),
-        0,
-        120,
-      ),
+      gain: readInput(elements.gainInput, DEFAULTS.gain, 0.01, 10),
+      tau: readInput(elements.tauInput, DEFAULTS.tau, 0.1, 600),
+      tau2: readInput(elements.tau2Input, DEFAULTS.tau2, 0.1, 600),
+      deadTime: readInput(elements.deadTimeInput, DEFAULTS.deadTime, 0, 120),
     };
   }
 
   function getDisturbanceAmplitude() {
-    return readInput(
-      elements.disturbanceInput,
-      inputFallback(elements.disturbanceInput, DEFAULTS.disturbance),
-      -100,
-      100,
-    );
+    return readInput(elements.disturbanceInput, DEFAULTS.disturbance, -100, 100);
   }
 
   function getDisturbancePeriod() {
-    return readInput(
-      elements.disturbancePeriodInput,
-      inputFallback(elements.disturbancePeriodInput, DEFAULTS.disturbancePeriod),
-      5,
-      600,
-    );
+    return readInput(elements.disturbancePeriodInput, DEFAULTS.disturbancePeriod, 5, 600);
   }
 
   function getDisturbanceValue() {
@@ -412,34 +380,108 @@
     updateKcEquivalent(DEFAULTS.kc);
   }
 
+  function numericInputLimits(input) {
+    if (input === elements.spInput) return [state.pvRange.lrv, state.pvRange.urv];
+    return {
+      "op-input": [0, 100],
+      "pb-input": [PB_MIN, Number.POSITIVE_INFINITY],
+      "ti-input": [0, 600],
+      "td-input": [0, 120],
+      "gain-input": [0.01, 10],
+      "tau-input": [0.1, 600],
+      "tau-2-input": [0.1, 600],
+      "dead-time-input": [0, 120],
+      "disturbance-input": [-100, 100],
+      "disturbance-period-input": [5, 600],
+    }[input.id] || null;
+  }
+
   function normalizeInput(input) {
-    const fallback = inputFallback(input, 0);
-    const limits = input.id === "sp-input"
-      ? [state.pvRange.lrv, state.pvRange.urv]
-      : {
-          "op-input": [0, 100],
-          "pb-input": [PB_MIN, Number.POSITIVE_INFINITY],
-          "ti-input": [0, 600],
-          "td-input": [0, 120],
-          "gain-input": [0.01, 10],
-          "tau-input": [0.1, 600],
-          "tau-2-input": [0.1, 600],
-          "dead-time-input": [0, 120],
-          "disturbance-input": [-100, 100],
-          "disturbance-period-input": [5, 600],
-        }[input.id];
-    if (!limits) return;
+    const limits = numericInputLimits(input);
+    if (!limits) return false;
 
     const raw = input.value.trim();
     const parsed = raw === "" ? Number.NaN : Number(raw);
-    if (!Number.isFinite(parsed) || parsed < limits[0] || parsed > limits[1]) {
-      input.classList.add("invalid");
-      input.setAttribute("aria-invalid", "true");
-      return;
+    if (!Number.isFinite(parsed) || parsed < limits[0] || parsed > limits[1]) return false;
+
+    writeInput(input, parsed);
+    return true;
+  }
+
+  function committedNumericValue(input) {
+    if (input === elements.spInput) return state.sp;
+    if (input === elements.opInput) return state.op;
+    if (input === elements.pvLrvInput) return state.pvRange.lrv;
+    if (input === elements.pvUrvInput) return state.pvRange.urv;
+    return inputFallback(input, 0);
+  }
+
+  function restoreNumericInput(input) {
+    writeInput(input, committedNumericValue(input));
+  }
+
+  function commitNumericInput(input) {
+    const raw = input.value.trim();
+    const parsed = raw === "" ? Number.NaN : Number(raw);
+    if (!Number.isFinite(parsed)) {
+      restoreNumericInput(input);
+      return false;
     }
 
-    const value = readInput(input, fallback, limits[0], limits[1]);
-    writeInput(input, value);
+    if (input === elements.pvLrvInput || input === elements.pvUrvInput) {
+      const lrv = input === elements.pvLrvInput ? parsed : state.pvRange.lrv;
+      const urv = input === elements.pvUrvInput ? parsed : state.pvRange.urv;
+      if (!isValidRange(lrv, urv)) {
+        restoreNumericInput(input);
+        return false;
+      }
+      writeInput(input, parsed);
+      syncPvRange();
+      updateUi();
+      return true;
+    }
+
+    if (!normalizeInput(input)) {
+      restoreNumericInput(input);
+      return false;
+    }
+
+    if (input === elements.spInput) {
+      state.sp = parsed;
+    } else if (input === elements.opInput) {
+      if (state.mode === "MAN") state.op = parsed;
+    }
+
+    if (input === elements.pbInput) readProportionalBand();
+    if (input === elements.pbInput || input === elements.tiInput || input === elements.tdInput) {
+      syncPidTermHistory();
+    }
+    updateUi();
+    return true;
+  }
+
+  function attachDeferredNumericInput(input) {
+    input.addEventListener("input", () => {
+      input.classList.add("pending");
+      input.classList.remove("invalid");
+      input.setAttribute("aria-invalid", "false");
+    });
+
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        commitNumericInput(input);
+        input.blur();
+      } else if (event.key === "Escape") {
+        event.preventDefault();
+        restoreNumericInput(input);
+        input.blur();
+      }
+    });
+
+    input.addEventListener("blur", () => {
+      if (input.classList.contains("pending")) restoreNumericInput(input);
+    });
   }
 
   function processInput() {
@@ -627,12 +669,7 @@
 
   function stepSimulation() {
     syncPvRange();
-    state.sp = readInput(
-      elements.spInput,
-      state.sp,
-      state.pvRange.lrv,
-      state.pvRange.urv,
-    );
+    state.sp = readInput(elements.spInput, state.sp, state.pvRange.lrv, state.pvRange.urv);
     const pidParams = getPidParams();
     const processParams = getProcessParams();
 
@@ -1136,61 +1173,19 @@
     elements.pidContributionCanvas.addEventListener("mousemove", updateContributionTooltip);
     elements.pidContributionCanvas.addEventListener("mouseleave", hideContributionTooltip);
 
-    elements.spInput.addEventListener("input", () => {
-      state.sp = readInput(
-        elements.spInput,
-        state.sp,
-        state.pvRange.lrv,
-        state.pvRange.urv,
-      );
+    deferredNumericInputs.forEach(attachDeferredNumericInput);
+
+    elements.pvUnitInput.addEventListener("input", () => {
+      syncPvRange();
       updateUi();
     });
-
-    [elements.pvLrvInput, elements.pvUrvInput, elements.pvUnitInput].forEach((input) => {
-      input.addEventListener("input", () => {
-        syncPvRange();
-        updateUi();
-      });
-      input.addEventListener("change", () => {
-        syncPvRange();
-        updateUi();
-      });
+    elements.pvUnitInput.addEventListener("change", () => {
+      syncPvRange();
+      updateUi();
     });
 
     elements.pidAlgorithmInput.addEventListener("change", () => {
       setPidAlgorithm(elements.pidAlgorithmInput.value);
-    });
-
-    elements.pbInput.addEventListener("input", () => {
-      readProportionalBand();
-      updateUi();
-    });
-
-    elements.opInput.addEventListener("input", () => {
-      if (state.mode !== "MAN") return;
-      state.op = readInput(elements.opInput, state.op, 0, 100);
-      state.op = clamp(state.op, 0, 100);
-      updateUi();
-    });
-
-    [
-      elements.pbInput,
-      elements.spInput,
-      elements.tiInput,
-      elements.tdInput,
-      elements.gainInput,
-      elements.tauInput,
-      elements.tau2Input,
-      elements.deadTimeInput,
-      elements.disturbanceInput,
-      elements.disturbancePeriodInput,
-    ].forEach((input) => {
-      input.addEventListener("change", () => {
-        normalizeInput(input);
-        if (input === elements.pbInput || input === elements.tiInput || input === elements.tdInput) {
-          syncPidTermHistory();
-        }
-      });
     });
 
     elements.processModelInput.addEventListener("change", () => {
