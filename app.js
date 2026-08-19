@@ -26,6 +26,11 @@
     Object.freeze({ key: "deltaMvI", label: "ΔMV_I", color: "#2c7d4f" }),
     Object.freeze({ key: "deltaMvD", label: "ΔMV_D", color: "#6f4e9b" }),
   ]);
+  const primaryTrendVisibility = {
+    pv: true,
+    sp: true,
+    op: true,
+  };
   const contributionVisibility = {
     deltaMvP: true,
     deltaMvI: true,
@@ -120,6 +125,7 @@
     simulationStatus: $("simulation-status"),
     spPvCanvas: $("sp-pv-chart"),
     pidContributionCanvas: $("pid-contribution-chart"),
+    primaryTrendLegendItems: [...document.querySelectorAll("[data-trend-series]")],
     contributionLegendItems: [...document.querySelectorAll("[data-contribution-series]")],
     contributionTooltip: $("pid-contribution-tooltip"),
     speedButtons: [...document.querySelectorAll(".speed-button")],
@@ -1017,7 +1023,7 @@
         { key: "pv", color: "#007b87" },
         { key: "sp", color: "#9c6a00" },
         { key: "op", color: "#b45b1f" },
-      ],
+      ].filter((series) => primaryTrendVisibility[series.key]),
     });
     drawChart(elements.pidContributionCanvas, {
       yMin: state.contributionYMin,
@@ -1159,6 +1165,16 @@
 
     elements.speedButtons.forEach((button) => {
       button.addEventListener("click", () => setSimulationSpeed(button.dataset.speed));
+    });
+
+    elements.primaryTrendLegendItems.forEach((button) => {
+      button.addEventListener("click", () => {
+        const key = button.dataset.trendSeries;
+        if (!(key in primaryTrendVisibility)) return;
+        primaryTrendVisibility[key] = !primaryTrendVisibility[key];
+        button.setAttribute("aria-pressed", String(primaryTrendVisibility[key]));
+        drawCharts();
+      });
     });
 
     elements.contributionLegendItems.forEach((button) => {
