@@ -112,8 +112,8 @@ effective input = MV + Disturbance
 ```text
 SV = 50       PV = 50       MV = 50       MODE = AUTO
 Algorithm = I-PD
-PB = 50%      Kc = 2        Ti = 20 s     Td = 2 s
-Gain = 1      Tau = 30 s    Dead Time = 5 s
+PB = 100%     Kc = 1        Ti = 20 s     Td = 0 s
+Gain = 1      Tau = 30 s    Dead Time = 3 s
 ```
 
 ## 课堂验证建议
