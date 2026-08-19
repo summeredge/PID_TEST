@@ -159,6 +159,9 @@
               <button id="disturbance-button" class="action-button disturbance-button" type="button" aria-pressed="false">
                 Step Load: OFF
               </button>
+              <button id="pv-noise-button" class="action-button disturbance-button" type="button" aria-pressed="false">
+                PV Noise: OFF
+              </button>
               <div class="experiment-actions">
                 <button id="pause-button" class="action-button pause-button" type="button" aria-pressed="false">
                   Pause
@@ -263,8 +266,8 @@
 
                 <section class="advanced-block">
                   <div class="subsection-heading">
-                    <span>LOAD DISTURBANCE</span>
-                    <span class="section-note">INPUT BIAS</span>
+                    <span>DISTURBANCE / NOISE</span>
+                    <span class="section-note">PROCESS / PV</span>
                   </div>
                   <label class="field-row" for="disturbance-type-input">
                     <span class="field-label">Type</span>
@@ -275,7 +278,7 @@
                     </select>
                   </label>
                   <label class="field-row" for="disturbance-input">
-                    <span class="field-label">Amplitude</span>
+                    <span class="field-label">Load Amp.</span>
                     <span class="input-with-unit">
                       <input id="disturbance-input" class="numeric-input" type="number" min="-100" max="100" step="1" value="-15" />
                       <span>%</span>
@@ -288,6 +291,20 @@
                       <span>s</span>
                     </span>
                   </label>
+                  <div class="subsection-heading model-subsection-heading">
+                    <span>PV MEASUREMENT NOISE</span>
+                    <span class="section-note">GAUSSIAN</span>
+                  </div>
+                  <label class="field-row" for="pv-noise-input">
+                    <span class="field-label">Noise σ</span>
+                    <span class="input-with-unit">
+                      <input id="pv-noise-input" class="numeric-input" type="number" min="0" max="20" step="0.1" value="1" />
+                      <span>%Span</span>
+                    </span>
+                  </label>
+                  <p class="helper-text">
+                    Gaussian white noise; σ is %Span. Noise affects measured DCS PV only, not Process Raw PV.
+                  </p>
                 </section>
 
                 <section class="advanced-block simulation-block">
