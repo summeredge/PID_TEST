@@ -306,7 +306,7 @@
                   </div>
                   <div class="simulation-meta">
                     <span>Fixed step <strong>0.5 s</strong></span>
-                    <span>Trend sample <strong>1.0 s</strong></span>
+                    <span>Trend sample <strong>0.5 s</strong></span>
                   </div>
                 </section>
               </div>
@@ -319,7 +319,7 @@
           </div>
         </aside>
 
-        <section class="trend-area" aria-label="PV、SV、MV 实时趋势图">
+        <section class="trend-area" aria-label="PV、SV、MV 与 P/I/D 每周期增量趋势图">
           <section class="trend-panel primary-trend">
             <div class="trend-heading">
               <div>
@@ -334,6 +334,44 @@
             </div>
             <div class="canvas-wrap">
               <canvas id="sp-pv-chart" aria-label="PV、SV、MV 实时趋势"></canvas>
+            </div>
+          </section>
+          <section class="trend-panel contribution-trend">
+            <div class="trend-heading">
+              <div>
+                <h2>P / I / D → MV 每周期增量贡献</h2>
+                <p class="trend-note">ΔMV_P / ΔMV_I / ΔMV_D · MV %</p>
+              </div>
+              <div class="legend contribution-legend" aria-label="P、I、D 增量贡献图例">
+                <button
+                  class="legend-item legend-toggle"
+                  type="button"
+                  data-contribution-series="deltaMvP"
+                  aria-pressed="true"
+                >
+                  <i class="legend-line p-contribution-line"></i>ΔMV_P
+                </button>
+                <button
+                  class="legend-item legend-toggle"
+                  type="button"
+                  data-contribution-series="deltaMvI"
+                  aria-pressed="true"
+                >
+                  <i class="legend-line i-contribution-line"></i>ΔMV_I
+                </button>
+                <button
+                  class="legend-item legend-toggle"
+                  type="button"
+                  data-contribution-series="deltaMvD"
+                  aria-pressed="true"
+                >
+                  <i class="legend-line d-contribution-line"></i>ΔMV_D
+                </button>
+              </div>
+            </div>
+            <div class="canvas-wrap">
+              <canvas id="pid-contribution-chart" aria-label="P、I、D 对 MV 每周期增量贡献趋势"></canvas>
+              <div id="pid-contribution-tooltip" class="chart-tooltip" role="status" hidden></div>
             </div>
           </section>
         </section>

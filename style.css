@@ -11,6 +11,7 @@
   --cyan: #007b87;
   --amber: #9c6a00;
   --orange: #b45b1f;
+  --purple: #6f4e9b;
   --green: #2c7d4f;
   --danger: #b5413b;
   --focus: #006f7a;
@@ -710,18 +711,20 @@ h2 {
 
 .trend-area {
   display: flex;
+  gap: 12px;
   min-width: 0;
   min-height: 0;
   flex-direction: column;
   grid-column: 2;
   grid-row: 1;
+  overflow-y: auto;
 }
 
 .trend-panel {
   display: flex;
-  flex: 1 1 auto;
+  flex: 1 0 300px;
   min-width: 0;
-  min-height: 0;
+  min-height: 300px;
   flex-direction: column;
   padding: 16px 18px 12px;
   border: 1px solid var(--line);
@@ -749,6 +752,25 @@ h2 {
   gap: 7px;
 }
 
+.legend-toggle {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: inherit;
+}
+
+.legend-toggle:hover,
+.legend-toggle:focus-visible {
+  color: var(--text);
+  outline: none;
+}
+
+.legend-toggle[aria-pressed="false"] {
+  opacity: 0.4;
+}
+
 .legend-line {
   display: inline-block;
   width: 23px;
@@ -767,6 +789,18 @@ h2 {
   background: var(--orange);
 }
 
+.p-contribution-line {
+  background: var(--cyan);
+}
+
+.i-contribution-line {
+  background: var(--green);
+}
+
+.d-contribution-line {
+  background: var(--purple);
+}
+
 .canvas-wrap {
   position: relative;
   min-height: 0;
@@ -778,6 +812,22 @@ h2 {
   color: var(--muted);
   font-size: 10px;
   letter-spacing: 0.03em;
+}
+
+.chart-tooltip {
+  position: absolute;
+  z-index: 2;
+  max-width: 220px;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  background: rgb(38 50 58 / 94%);
+  color: #ffffff;
+  font-family: Consolas, "Cascadia Mono", "Microsoft YaHei", monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  pointer-events: none;
+  white-space: pre-line;
 }
 
 canvas {

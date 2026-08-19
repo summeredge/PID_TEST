@@ -103,6 +103,40 @@ test("DCS PV contract separates raw process PV from the DCS signal", () => {
   assert.match(pid, /pvPct: signals\.pvPct/);
 });
 
+test("MV contribution trend uses controller term deltas and reset state", () => {
+  assert.match(html, /id="pid-contribution-chart"/);
+  assert.match(html, /P \/ I \/ D → MV 每周期增量贡献/);
+  assert.match(html, /id="pid-contribution-tooltip"/);
+  assert.equal((html.match(/data-contribution-series=/g) || []).length, 3);
+  assert.match(app, /const DT = 0\.5;\s*const TREND_INTERVAL = DT;/);
+  assert.match(html, /Trend sample <strong>0\.5 s<\/strong>/);
+
+  const pid = readFunction(app, "computePidDelta", "computeAutoOutput");
+  assert.match(pid, /previousPTerm: state\.pidTerms\.pTerm/);
+  assert.match(pid, /previousITerm: state\.pidTerms\.iTerm/);
+  assert.match(pid, /previousDTerm: state\.pidTerms\.dTerm/);
+  assert.match(pid, /deltaMvP: finiteOr\(result\.deltaP, 0\)/);
+  assert.match(pid, /deltaMvI: finiteOr\(result\.deltaI, 0\)/);
+  assert.match(pid, /deltaMvD: finiteOr\(result\.deltaD, 0\)/);
+
+  const trend = readFunction(app, "recordTrendSample", "stepSimulation");
+  assert.match(trend, /deltaMvP: state\.currentContributions\.deltaMvP/);
+  assert.match(trend, /deltaMvI: state\.currentContributions\.deltaMvI/);
+  assert.match(trend, /deltaMvD: state\.currentContributions\.deltaMvD/);
+
+  const reset = readFunction(app, "resetSimulation", "updateProcessUi");
+  assert.match(reset, /history: \[\]/);
+  assert.match(reset, /pidTerms:/);
+  assert.match(reset, /currentContributions:/);
+  assert.match(reset, /syncPidHistory\(\)/);
+  assert.match(reset, /recordTrendSample\(\)/);
+
+  assert.match(app, /zeroLine: true/);
+  assert.match(app, /contributionVisibility\[key\] = !contributionVisibility\[key\]/);
+  assert.match(app, /updateContributionTooltip/);
+  assert.match(css, /\.chart-tooltip/);
+});
+
 test("SV follows the live PV range without changing process PV", () => {
   const rangeSync = readFunction(app, "syncPvRange", "syncSpInputRange");
   assert.match(rangeSync, /state\.sp = clamp\(state\.sp, candidate\.lrv, candidate\.urv\)/);

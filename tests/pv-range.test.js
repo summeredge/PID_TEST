@@ -188,6 +188,74 @@ test("I-PD keeps P and D on PV rather than deviation", () => {
   assert.equal(pvStep.deltaMv, -20);
 });
 
+test("controller returns P/I/D term changes that preserve the velocity output", () => {
+  const result = computeVelocityPidDelta({
+    dt: 0.5,
+    pidAlgorithm: "PID",
+    kc: 2,
+    ti: 20,
+    td: 2,
+    errorPct: 10,
+    previousErrorPct: 0,
+    previousDeltaErrorPct: 0,
+    pvPct: 50,
+    previousPvPct: 50,
+    previousDeltaPvPct: 0,
+    previousPTerm: 0,
+    previousITerm: 0,
+    previousDTerm: 0,
+  });
+
+  assert.equal(result.pTerm, 20);
+  assert.equal(result.iTerm, 0.5);
+  assert.equal(result.dTerm, 80);
+  assert.equal(result.deltaP, 20);
+  assert.equal(result.deltaI, 0.5);
+  assert.equal(result.deltaD, 80);
+  assert.equal(result.deltaMv, result.deltaP + result.deltaI + result.deltaD);
+});
+
+test("the first stable calculation has zero contribution for every term", () => {
+  const result = computeVelocityPidDelta({
+    dt: 0.5,
+    pidAlgorithm: "PID",
+    kc: 2,
+    ti: 20,
+    td: 2,
+    errorPct: 0,
+    previousErrorPct: 0,
+    previousDeltaErrorPct: 0,
+    pvPct: 50,
+    previousPvPct: 50,
+    previousDeltaPvPct: 0,
+  });
+
+  assert.equal(result.deltaP, 0);
+  assert.equal(result.deltaI, 0);
+  assert.equal(result.deltaD, 0);
+});
+
+test("I-PD SV step changes only the integral contribution while PV is fixed", () => {
+  const result = computeVelocityPidDelta({
+    dt: 0.5,
+    pidAlgorithm: "I_PD",
+    kc: 2,
+    ti: 20,
+    td: 2,
+    errorPct: 10,
+    previousErrorPct: 0,
+    previousDeltaErrorPct: 0,
+    pvPct: 50,
+    previousPvPct: 50,
+    previousDeltaPvPct: 0,
+  });
+
+  assert.equal(result.deltaP, 0);
+  assert.equal(result.deltaD, 0);
+  assert.equal(result.deltaI, 0.5);
+  assert.equal(result.deltaMv, result.deltaI);
+});
+
 test("I-PD PV response halves for the same engineering disturbance at double span", () => {
   const range100 = normalizePidSignals(60, 50, 0, 100);
   const range200 = normalizePidSignals(60, 50, 0, 200);

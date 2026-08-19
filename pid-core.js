@@ -76,12 +76,34 @@
       pvPct,
       previousPvPct,
       previousDeltaPvPct,
+      previousPTerm,
+      previousITerm,
+      previousDTerm,
     } = params;
     const deltaErrorPct = errorPct - previousErrorPct;
     const deltaPvPct = pvPct - previousPvPct;
     const delta2ErrorPct = deltaErrorPct - previousDeltaErrorPct;
     const delta2PvPct = deltaPvPct - previousDeltaPvPct;
     const integralPart = ti > 0 ? (dt / ti) * errorPct : 0;
+
+    const usesPvForProportional = pidAlgorithm === "I_PD";
+    const usesErrorForDerivative = pidAlgorithm === "PID";
+    const proportionalInput = usesPvForProportional ? -pvPct : errorPct;
+    const previousProportionalInput = usesPvForProportional ? -previousPvPct : previousErrorPct;
+    const derivativeInput = usesErrorForDerivative ? deltaErrorPct : -deltaPvPct;
+    const previousDerivativeInput = usesErrorForDerivative
+      ? previousDeltaErrorPct
+      : -previousDeltaPvPct;
+    const proportionalTerm = kc * proportionalInput;
+    const integralDelta = kc * integralPart;
+    const integralTerm = (Number.isFinite(previousITerm) ? previousITerm : 0) + integralDelta;
+    const derivativeTerm = kc * (td / dt) * derivativeInput;
+    const previousProportionalTerm = Number.isFinite(previousPTerm)
+      ? previousPTerm
+      : kc * previousProportionalInput;
+    const previousDerivativeTerm = Number.isFinite(previousDTerm)
+      ? previousDTerm
+      : kc * (td / dt) * previousDerivativeInput;
 
     let deltaMv;
     switch (pidAlgorithm) {
@@ -99,6 +121,12 @@
 
     return {
       deltaMv,
+      deltaP: proportionalTerm - previousProportionalTerm,
+      deltaI: integralTerm - (Number.isFinite(previousITerm) ? previousITerm : 0),
+      deltaD: derivativeTerm - previousDerivativeTerm,
+      pTerm: proportionalTerm,
+      iTerm: integralTerm,
+      dTerm: derivativeTerm,
       deltaErrorPct,
       deltaPvPct,
     };

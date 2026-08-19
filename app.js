@@ -2,7 +2,7 @@
   "use strict";
 
   const DT = 0.5;
-  const TREND_INTERVAL = 1;
+  const TREND_INTERVAL = DT;
   const HISTORY_SECONDS = 300;
   const CHART_WINDOW_SECONDS = 120;
   const SPEED_OPTIONS = Object.freeze([1, 2, 5, 10]);
@@ -21,6 +21,16 @@
     PI_D: "P: Deviation · I: Deviation · D: PV",
     PID: "P: Deviation · I: Deviation · D: Deviation",
   });
+  const CONTRIBUTION_SERIES = Object.freeze([
+    Object.freeze({ key: "deltaMvP", label: "ΔMV_P", color: "#007b87" }),
+    Object.freeze({ key: "deltaMvI", label: "ΔMV_I", color: "#2c7d4f" }),
+    Object.freeze({ key: "deltaMvD", label: "ΔMV_D", color: "#6f4e9b" }),
+  ]);
+  const contributionVisibility = {
+    deltaMvP: true,
+    deltaMvI: true,
+    deltaMvD: true,
+  };
   const INTEGRATING_BIAS_OP = 50;
   const PROCESS_DEFAULTS = Object.freeze({
     FOPDT: Object.freeze({ gain: 1, tau: 30, tau2: 10, deadTime: 5 }),
@@ -109,6 +119,9 @@
     trendCount: $("trend-count"),
     simulationStatus: $("simulation-status"),
     spPvCanvas: $("sp-pv-chart"),
+    pidContributionCanvas: $("pid-contribution-chart"),
+    contributionLegendItems: [...document.querySelectorAll("[data-contribution-series]")],
+    contributionTooltip: $("pid-contribution-tooltip"),
     speedButtons: [...document.querySelectorAll(".speed-button")],
   };
 
@@ -451,12 +464,32 @@
     state.delayBuffer = Array(steps).fill(state.lastProcessInput);
   }
 
+  function getPidTermBaseline(signals) {
+    const kc = readProportionalBand();
+    const proportionalInput = state.pidAlgorithm === "I_PD" ? -signals.pvPct : signals.errorPct;
+    return {
+      pTerm: finiteOr(kc * proportionalInput, 0),
+      iTerm: 0,
+      dTerm: 0,
+    };
+  }
+
+  function syncPidTermHistory(signals = getDcsSignals()) {
+    state.pidTerms = getPidTermBaseline(signals);
+    state.currentContributions = {
+      deltaMvP: 0,
+      deltaMvI: 0,
+      deltaMvD: 0,
+    };
+  }
+
   function syncPidHistory() {
     const signals = getDcsSignals();
     state.previousErrorPct = signals.errorPct;
     state.previousDeltaErrorPct = 0;
     state.previousPvPct = signals.pvPct;
     state.previousDeltaPvPct = 0;
+    syncPidTermHistory(signals);
   }
 
   function computePidDelta(params) {
@@ -473,12 +506,25 @@
       pvPct: signals.pvPct,
       previousPvPct: state.previousPvPct,
       previousDeltaPvPct: state.previousDeltaPvPct,
+      previousPTerm: state.pidTerms.pTerm,
+      previousITerm: state.pidTerms.iTerm,
+      previousDTerm: state.pidTerms.dTerm,
     });
 
     state.previousErrorPct = signals.errorPct;
     state.previousDeltaErrorPct = result.deltaErrorPct;
     state.previousPvPct = signals.pvPct;
     state.previousDeltaPvPct = result.deltaPvPct;
+    state.pidTerms = {
+      pTerm: finiteOr(result.pTerm, state.pidTerms.pTerm),
+      iTerm: finiteOr(result.iTerm, state.pidTerms.iTerm),
+      dTerm: finiteOr(result.dTerm, state.pidTerms.dTerm),
+    };
+    state.currentContributions = {
+      deltaMvP: finiteOr(result.deltaP, 0),
+      deltaMvI: finiteOr(result.deltaI, 0),
+      deltaMvD: finiteOr(result.deltaD, 0),
+    };
     return finiteOr(result.deltaMv, 0);
   }
 
@@ -569,6 +615,9 @@
       sp: signals.spPct,
       pv: signals.pvPct,
       op: state.op,
+      deltaMvP: state.currentContributions.deltaMvP,
+      deltaMvI: state.currentContributions.deltaMvI,
+      deltaMvD: state.currentContributions.deltaMvD,
     });
     const oldestAllowed = state.simTime - HISTORY_SECONDS;
     while (state.history.length > 1 && state.history[0].time < oldestAllowed) {
@@ -625,6 +674,16 @@
       previousDeltaErrorPct: 0,
       previousPvPct: 50,
       previousDeltaPvPct: 0,
+      pidTerms: {
+        pTerm: 0,
+        iTerm: 0,
+        dTerm: 0,
+      },
+      currentContributions: {
+        deltaMvP: 0,
+        deltaMvI: 0,
+        deltaMvD: 0,
+      },
       justEnteredAuto: false,
       delayBuffer: [],
       lastProcessInput: DEFAULTS.op,
@@ -635,10 +694,13 @@
       history: [],
       chartPercentMin: 0,
       chartPercentMax: 100,
+      contributionYMin: -1,
+      contributionYMax: 1,
     };
     syncPidHistory();
     initializeDelayBuffer(DEFAULTS.deadTime);
     recordTrendSample();
+    hideContributionTooltip();
     lastFrameTime = performance.now();
     accumulator = 0;
     updateUi();
@@ -744,6 +806,33 @@
     state.chartPercentMax = Math.max(state.chartPercentMax, state.chartPercentMin + 20, 100);
   }
 
+  function updateContributionScale() {
+    let minimum = 0;
+    let maximum = 0;
+    let hasVisibleSeries = false;
+
+    for (const point of state.history) {
+      for (const series of CONTRIBUTION_SERIES) {
+        if (!contributionVisibility[series.key]) continue;
+        const value = finiteOr(point[series.key], 0);
+        minimum = Math.min(minimum, value);
+        maximum = Math.max(maximum, value);
+        hasVisibleSeries = true;
+      }
+    }
+
+    if (!hasVisibleSeries) {
+      state.contributionYMin = -1;
+      state.contributionYMax = 1;
+      return;
+    }
+
+    const magnitude = Math.max(Math.abs(minimum), Math.abs(maximum), 0.1);
+    const paddedMagnitude = magnitude * 1.15;
+    state.contributionYMin = -paddedMagnitude;
+    state.contributionYMax = paddedMagnitude;
+  }
+
   function resizeCanvas(canvas) {
     const rect = canvas.getBoundingClientRect();
     const width = Math.max(1, Math.floor(rect.width));
@@ -782,7 +871,7 @@
     };
   }
 
-  function drawGrid(context, geometry, yTicks) {
+  function drawGrid(context, geometry, yTicks, yDigits = 0) {
     const { left, top, plotWidth, plotHeight, yMin, yMax, xStart, xEnd } = geometry;
     context.lineWidth = 1;
     context.strokeStyle = "#c3ccd1";
@@ -800,7 +889,7 @@
       const value = yMax - (yMax - yMin) * ratio;
       context.textAlign = "right";
       context.textBaseline = "middle";
-      context.fillText(formatNumber(value, 0), left - 8, y);
+      context.fillText(formatNumber(value, yDigits), left - 8, y);
     }
 
     const verticalTicks = 4;
@@ -822,7 +911,7 @@
   function drawSeries(context, geometry, key, color) {
     const { left, top, plotWidth, plotHeight, yMin, yMax, xStart, xEnd } = geometry;
     const timeSpan = Math.max(1, xEnd - xStart);
-    const valueSpan = Math.max(1, yMax - yMin);
+    const valueSpan = Math.max(Number.EPSILON, yMax - yMin);
     let started = false;
 
     context.beginPath();
@@ -847,6 +936,21 @@
     context.stroke();
   }
 
+  function drawZeroLine(context, geometry) {
+    const { left, top, plotWidth, plotHeight, yMin, yMax } = geometry;
+    if (yMin > 0 || yMax < 0) return;
+
+    const y = top + (1 - (0 - yMin) / (yMax - yMin)) * plotHeight;
+    context.beginPath();
+    context.moveTo(left, y + 0.5);
+    context.lineTo(left + plotWidth, y + 0.5);
+    context.strokeStyle = "#89959a";
+    context.lineWidth = 1;
+    context.setLineDash([4, 4]);
+    context.stroke();
+    context.setLineDash([]);
+  }
+
   function drawChart(canvas, options) {
     const sized = resizeCanvas(canvas);
     if (!sized) return;
@@ -857,7 +961,8 @@
     context.fillRect(0, 0, width, height);
 
     const geometry = chartGeometry(width, height, options.yMin, options.yMax);
-    drawGrid(context, geometry, options.yTicks);
+    drawGrid(context, geometry, options.yTicks, options.yDigits || 0);
+    if (options.zeroLine) drawZeroLine(context, geometry);
     for (const series of options.series) {
       drawSeries(context, geometry, series.key, series.color);
     }
@@ -866,6 +971,7 @@
   function drawCharts() {
     if (!state) return;
     updateChartScale();
+    updateContributionScale();
     drawChart(elements.spPvCanvas, {
       yMin: state.chartPercentMin,
       yMax: state.chartPercentMax,
@@ -876,6 +982,71 @@
         { key: "op", color: "#b45b1f" },
       ],
     });
+    drawChart(elements.pidContributionCanvas, {
+      yMin: state.contributionYMin,
+      yMax: state.contributionYMax,
+      yTicks: 4,
+      yDigits: 1,
+      zeroLine: true,
+      series: CONTRIBUTION_SERIES.filter((series) => contributionVisibility[series.key]),
+    });
+  }
+
+  function hideContributionTooltip() {
+    if (elements.contributionTooltip) elements.contributionTooltip.hidden = true;
+  }
+
+  function updateContributionTooltip(event) {
+    const canvas = elements.pidContributionCanvas;
+    const tooltip = elements.contributionTooltip;
+    if (!state || !canvas || !tooltip) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const geometry = chartGeometry(
+      Math.max(1, rect.width),
+      Math.max(1, rect.height),
+      state.contributionYMin,
+      state.contributionYMax,
+    );
+    const x = event.clientX - rect.left;
+    if (x < geometry.left || x > geometry.left + geometry.plotWidth) {
+      hideContributionTooltip();
+      return;
+    }
+
+    const time = geometry.xStart +
+      ((x - geometry.left) / geometry.plotWidth) * (geometry.xEnd - geometry.xStart);
+    let nearestPoint = null;
+    let nearestDistance = Number.POSITIVE_INFINITY;
+    for (const point of state.history) {
+      if (point.time < geometry.xStart || point.time > geometry.xEnd) continue;
+      const distance = Math.abs(point.time - time);
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        nearestPoint = point;
+      }
+    }
+    if (!nearestPoint) {
+      hideContributionTooltip();
+      return;
+    }
+
+    tooltip.textContent = [
+      `时间: ${formatNumber(nearestPoint.time)} s`,
+      `ΔMV_P: ${formatNumber(nearestPoint.deltaMvP)} %`,
+      `ΔMV_I: ${formatNumber(nearestPoint.deltaMvI)} %`,
+      `ΔMV_D: ${formatNumber(nearestPoint.deltaMvD)} %`,
+    ].join("\n");
+    tooltip.hidden = false;
+
+    const wrapRect = canvas.parentElement.getBoundingClientRect();
+    const margin = 8;
+    const requestedLeft = rect.left - wrapRect.left + x + 12;
+    const requestedTop = event.clientY - wrapRect.top + 12;
+    const maxLeft = Math.max(margin, wrapRect.width - tooltip.offsetWidth - margin);
+    const maxTop = Math.max(margin, wrapRect.height - tooltip.offsetHeight - margin);
+    tooltip.style.left = `${Math.min(maxLeft, Math.max(margin, requestedLeft))}px`;
+    tooltip.style.top = `${Math.min(maxTop, Math.max(margin, requestedTop))}px`;
   }
 
   function updateUi() {
@@ -953,6 +1124,18 @@
       button.addEventListener("click", () => setSimulationSpeed(button.dataset.speed));
     });
 
+    elements.contributionLegendItems.forEach((button) => {
+      button.addEventListener("click", () => {
+        const key = button.dataset.contributionSeries;
+        if (!(key in contributionVisibility)) return;
+        contributionVisibility[key] = !contributionVisibility[key];
+        button.setAttribute("aria-pressed", String(contributionVisibility[key]));
+        drawCharts();
+      });
+    });
+    elements.pidContributionCanvas.addEventListener("mousemove", updateContributionTooltip);
+    elements.pidContributionCanvas.addEventListener("mouseleave", hideContributionTooltip);
+
     elements.spInput.addEventListener("input", () => {
       state.sp = readInput(
         elements.spInput,
@@ -1002,7 +1185,12 @@
       elements.disturbanceInput,
       elements.disturbancePeriodInput,
     ].forEach((input) => {
-      input.addEventListener("change", () => normalizeInput(input));
+      input.addEventListener("change", () => {
+        normalizeInput(input);
+        if (input === elements.pbInput || input === elements.tiInput || input === elements.tdInput) {
+          syncPidTermHistory();
+        }
+      });
     });
 
     elements.processModelInput.addEventListener("change", () => {
