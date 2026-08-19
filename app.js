@@ -33,9 +33,9 @@
   };
   const INTEGRATING_BIAS_OP = 50;
   const PROCESS_DEFAULTS = Object.freeze({
-    FOPDT: Object.freeze({ gain: 1, tau: 30, tau2: 10, deadTime: 5 }),
+    FOPDT: Object.freeze({ gain: 1, tau: 30, tau2: 10, deadTime: 3 }),
     INTEGRATING: Object.freeze({ gain: 0.05, tau: 30, tau2: 10, deadTime: 3 }),
-    SOPDT: Object.freeze({ gain: 1, tau: 20, tau2: 10, deadTime: 5 }),
+    SOPDT: Object.freeze({ gain: 1, tau: 20, tau2: 10, deadTime: 3 }),
   });
   const PROCESS_DESCRIPTIONS = Object.freeze({
     FOPDT: "一阶自衡：输出改变后 PV 最终达到新的稳定值。",
@@ -52,13 +52,13 @@
     pvUnit: "%",
     processModel: "FOPDT",
     pidAlgorithm: "I_PD",
-    kc: 2,
+    kc: 1,
     ti: 20,
-    td: 2,
+    td: 0,
     gain: 1,
     tau: 30,
     tau2: 10,
-    deadTime: 5,
+    deadTime: 3,
     disturbance: -15,
     disturbanceType: "STEP",
     disturbancePeriod: 60,
