@@ -114,6 +114,39 @@ test("DCS PV contract separates raw process PV from the DCS signal", () => {
   assert.match(pid, /pvPct: signals\.pvPct/);
 });
 
+test("PV measurement noise stays in the measurement path", () => {
+  assert.match(html, /id="pv-noise-button"/);
+  assert.match(html, /id="pv-noise-input"[^>]*min="0"[^>]*max="20"/);
+  assert.match(html, /PV MEASUREMENT NOISE/);
+  assert.match(html, /Gaussian white noise/);
+  assert.match(app, /pvNoise:\s*1/);
+
+  const dcsSignals = readFunction(app, "getDcsSignals", "updatePvRangeUi");
+  assert.match(dcsSignals, /const noisePct = finiteOr\(state\.pvNoisePct, 0\)/);
+  assert.match(dcsSignals, /const measuredPv = state\.pv \+ \(noisePct \/ 100\) \* span/);
+  assert.match(dcsSignals, /getDcsNormalizedSignals\(measuredPv, state\.sp, range\.lrv, range\.urv\)/);
+  assert.match(dcsSignals, /rawPvPct: engineeringToPercent\(state\.pv, range\.lrv, range\.urv\)/);
+  assert.doesNotMatch(dcsSignals, /state\.pv\s*=/);
+
+  const noiseSampler = readFunction(app, "samplePvNoise", "getDisturbanceValue");
+  assert.match(noiseSampler, /state\.pvNoiseEnabled/);
+  assert.match(noiseSampler, /gaussianRandom\(\) \* getPvNoiseSigma\(\)/);
+
+  const processStep = readFunction(app, "stepProcess", "recordTrendSample");
+  assert.doesNotMatch(processStep, /pvNoise|samplePvNoise/);
+
+  const simulationStep = readFunction(app, "stepSimulation", "resetSimulation");
+  assert.match(simulationStep, /state\.simTime \+= DT;\s*samplePvNoise\(\)/);
+
+  const reset = readFunction(app, "resetSimulation", "updateProcessUi");
+  assert.match(reset, /pvNoiseEnabled:\s*false/);
+  assert.match(reset, /pvNoisePct:\s*0/);
+
+  assert.match(app, /pvNoiseButton\.textContent = `PV Noise: \$\{state\.pvNoiseEnabled \? "ON" : "OFF"\}`/);
+  assert.match(app, /state\.pvNoiseEnabled = !state\.pvNoiseEnabled/);
+  assert.match(app, /if \(!state\.pvNoiseEnabled\) state\.pvNoisePct = 0/);
+});
+
 test("MV contribution trend uses controller term deltas and reset state", () => {
   assert.match(html, /id="pid-contribution-chart"/);
   assert.match(html, /P \/ I \/ D → MV 每周期增量贡献/);

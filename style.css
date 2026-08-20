@@ -186,6 +186,8 @@ button {
 .left-controls {
   grid-column: 1;
   grid-row: 1;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .control-panel-main {
@@ -193,11 +195,9 @@ button {
 }
 
 .control-panel-secondary-scroll {
-  min-height: 0;
   min-width: 0;
-  flex: 1 1 auto;
-  overflow-x: hidden;
-  overflow-y: auto;
+  flex: 0 0 auto;
+  overflow: visible;
 }
 
 .panel-section {
@@ -517,6 +517,14 @@ h2 {
 .op-input-row .numeric-input:not(:disabled) {
   border-color: var(--orange);
   color: var(--orange);
+}
+
+.numeric-input.pending,
+.op-input-row .numeric-input.pending:not(:disabled) {
+  border-color: var(--amber);
+  background: rgb(156 106 0 / 8%);
+  color: var(--text);
+  box-shadow: 0 0 0 2px rgb(156 106 0 / 10%);
 }
 
 .helper-text {
@@ -912,6 +920,17 @@ summary:focus-visible {
 
   .control-panel-main .basic-section {
     padding-bottom: 5px;
+  }
+
+  .trend-area {
+    display: grid;
+    grid-template-rows: minmax(0, 2fr) minmax(0, 1fr);
+    overflow: hidden;
+  }
+
+  .trend-panel {
+    min-height: 0;
+    flex: none;
   }
 }
 

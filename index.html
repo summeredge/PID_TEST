@@ -17,7 +17,7 @@
       <header class="topbar">
         <div class="brand-block">
           <div class="eyebrow">PROCESS CONTROL TRAINER</div>
-          <h1>PID LOOP <span>/ LIC-101</span></h1>
+          <h1>PID LOOP</h1>
         </div>
         <div class="topbar-status" aria-label="仿真状态">
           <span class="status-dot" aria-hidden="true"></span>
@@ -112,7 +112,7 @@
               <label class="field-row" for="pb-input">
                 <span class="field-label">PB</span>
                 <span class="input-with-unit">
-                  <input id="pb-input" class="numeric-input" type="number" min="2" step="0.1" value="50" />
+                  <input id="pb-input" class="numeric-input" type="number" min="2" step="0.1" value="100" />
                   <span>%</span>
                 </span>
               </label>
@@ -126,13 +126,13 @@
               <label class="field-row" for="td-input">
                 <span class="field-label">Td</span>
                 <span class="input-with-unit">
-                  <input id="td-input" class="numeric-input" type="number" min="0" max="120" step="0.1" value="2" />
+                  <input id="td-input" class="numeric-input" type="number" min="0" max="120" step="0.1" value="0" />
                   <span>s</span>
                 </span>
               </label>
             </div>
-            <p id="kc-equivalent" class="helper-text pid-equivalent">Equivalent Kc: 2.00</p>
-            <p id="pid-span-note" class="helper-text">PB = 50% → Kc = 2.00 · PID input uses PV/SV in %Span</p>
+            <p id="kc-equivalent" class="helper-text pid-equivalent">Equivalent Kc: 1.00</p>
+            <p id="pid-span-note" class="helper-text">PB = 100% → Kc = 1.00 · PID input uses PV/SV in %Span</p>
             <p class="helper-text">Ti = 0 关闭积分；Td = 0 关闭微分。</p>
 
             <div class="subsection-heading model-subsection-heading">
@@ -158,6 +158,9 @@
               </div>
               <button id="disturbance-button" class="action-button disturbance-button" type="button" aria-pressed="false">
                 Step Load: OFF
+              </button>
+              <button id="pv-noise-button" class="action-button disturbance-button" type="button" aria-pressed="false">
+                PV Noise: OFF
               </button>
               <div class="experiment-actions">
                 <button id="pause-button" class="action-button pause-button" type="button" aria-pressed="false">
@@ -253,7 +256,7 @@
                     <label id="dead-time-field" class="field-row" for="dead-time-input">
                       <span class="field-label">Dead Time</span>
                       <span class="input-with-unit">
-                        <input id="dead-time-input" class="numeric-input" type="number" min="0" max="120" step="0.5" value="5" />
+                        <input id="dead-time-input" class="numeric-input" type="number" min="0" max="120" step="0.5" value="3" />
                         <span>s</span>
                       </span>
                     </label>
@@ -263,8 +266,8 @@
 
                 <section class="advanced-block">
                   <div class="subsection-heading">
-                    <span>LOAD DISTURBANCE</span>
-                    <span class="section-note">INPUT BIAS</span>
+                    <span>DISTURBANCE / NOISE</span>
+                    <span class="section-note">PROCESS / PV</span>
                   </div>
                   <label class="field-row" for="disturbance-type-input">
                     <span class="field-label">Type</span>
@@ -275,7 +278,7 @@
                     </select>
                   </label>
                   <label class="field-row" for="disturbance-input">
-                    <span class="field-label">Amplitude</span>
+                    <span class="field-label">Load Amp.</span>
                     <span class="input-with-unit">
                       <input id="disturbance-input" class="numeric-input" type="number" min="-100" max="100" step="1" value="-15" />
                       <span>%</span>
@@ -288,6 +291,20 @@
                       <span>s</span>
                     </span>
                   </label>
+                  <div class="subsection-heading model-subsection-heading">
+                    <span>PV MEASUREMENT NOISE</span>
+                    <span class="section-note">GAUSSIAN</span>
+                  </div>
+                  <label class="field-row" for="pv-noise-input">
+                    <span class="field-label">Noise σ</span>
+                    <span class="input-with-unit">
+                      <input id="pv-noise-input" class="numeric-input" type="number" min="0" max="20" step="0.1" value="1" />
+                      <span>%Span</span>
+                    </span>
+                  </label>
+                  <p class="helper-text">
+                    Gaussian white noise; σ is %Span. Noise affects measured DCS PV only, not Process Raw PV.
+                  </p>
                 </section>
 
                 <section class="advanced-block simulation-block">
@@ -326,10 +343,31 @@
                 <h2>PV / SV / MV Trend</h2>
                 <p id="trend-note" class="trend-note">PV/SV: %Span · MV: %</p>
               </div>
-              <div class="legend" aria-label="PV、SV、MV 图例">
-                <span class="legend-item"><i class="legend-line pv-line"></i>PV</span>
-                <span class="legend-item"><i class="legend-line sp-line"></i>SV</span>
-                <span class="legend-item"><i class="legend-line op-line"></i>MV</span>
+              <div class="legend primary-legend" aria-label="PV、SV、MV 图例">
+                <button
+                  class="legend-item legend-toggle"
+                  type="button"
+                  data-trend-series="pv"
+                  aria-pressed="true"
+                >
+                  <i class="legend-line pv-line"></i>PV
+                </button>
+                <button
+                  class="legend-item legend-toggle"
+                  type="button"
+                  data-trend-series="sp"
+                  aria-pressed="true"
+                >
+                  <i class="legend-line sp-line"></i>SV
+                </button>
+                <button
+                  class="legend-item legend-toggle"
+                  type="button"
+                  data-trend-series="op"
+                  aria-pressed="true"
+                >
+                  <i class="legend-line op-line"></i>MV
+                </button>
               </div>
             </div>
             <div class="canvas-wrap">
