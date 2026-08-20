@@ -54,6 +54,17 @@ test("pause contract keeps the animation frame alive and resets elapsed time on 
   assert.match(app, /SIMULATION PAUSED/);
 });
 
+test("default controller mode is MAN in state and static UI", () => {
+  const reset = readFunction(app, "resetSimulation", "updateProcessUi");
+  assert.match(reset, /mode: "MAN"/);
+  assert.match(html, /<strong id="mode-display" class="mode-display man">MAN<\/strong>/);
+  assert.match(html, /<button id="auto-button" class="mode-button" type="button" data-mode="AUTO">/);
+  assert.match(html, /<button id="man-button" class="mode-button active" type="button" data-mode="MAN">/);
+  assert.match(html, /<input id="op-input"[^>]*value="50"\s*\/>/);
+  assert.doesNotMatch(html, /<input id="op-input"[^>]*disabled/);
+  assert.match(html, /MAN：PID 停止自动调节，可直接修改 MV。/);
+});
+
 test("disturbance contract uses one process-input entry and simulation time waveforms", () => {
   const disturbanceFunction = readFunction(app, "getDisturbanceValue", "setDefaultInputs");
   assert.match(app, /DISTURBANCE_TYPES = Object\.freeze\(\["STEP", "SQUARE", "SINE"\]\)/);

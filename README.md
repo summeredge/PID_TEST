@@ -110,7 +110,7 @@ effective input = MV + Disturbance
 默认工况：
 
 ```text
-SV = 50       PV = 50       MV = 50       MODE = AUTO
+SV = 50       PV = 50       MV = 50       MODE = MAN
 Algorithm = I-PD
 PB = 50%      Kc = 2        Ti = 20 s     Td = 2 s
 Gain = 1      Tau = 30 s    Dead Time = 5 s

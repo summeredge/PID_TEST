@@ -666,7 +666,7 @@
         urv: DEFAULTS.pvUrv,
         unit: DEFAULTS.pvUnit,
       },
-      mode: "AUTO",
+      mode: "MAN",
       processModel: DEFAULTS.processModel,
       pidAlgorithm: DEFAULTS.pidAlgorithm,
       processStage1: DEFAULTS.pv,
